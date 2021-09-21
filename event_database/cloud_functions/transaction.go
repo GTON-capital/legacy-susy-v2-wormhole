@@ -2,12 +2,14 @@
 package p
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html"
 	"io"
 	"log"
 	"net/http"
+	"os"
 
 	"cloud.google.com/go/bigtable"
 )
@@ -73,6 +75,21 @@ func Transaction(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 	}
 
+	// create bibtable client and open table
+	clientOnce.Do(func() {
+		// Declare a separate err variable to avoid shadowing client.
+		var err error
+		project := os.Getenv("GCP_PROJECT")
+		instance := os.Getenv("BIGTABLE_INSTANCE")
+		client, err = bigtable.NewClient(context.Background(), project, instance)
+		if err != nil {
+			http.Error(w, "Error initializing client", http.StatusInternalServerError)
+			log.Printf("bigtable.NewClient: %v", err)
+			return
+		}
+	})
+	tbl := client.Open("v2Events")
+
 	var result bigtable.Row
 	readErr := tbl.ReadRows(r.Context(), bigtable.PrefixRange(""), func(row bigtable.Row) bool {
 
@@ -99,8 +116,8 @@ func Transaction(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("Could not read row with key %s: %v", key, err)
 	}
 
-	details := makeDetails(row)
-	jsonBytes, err := json.Marshal(details)
+	summary := makeSummary(row)
+	jsonBytes, err := json.Marshal(summary)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))

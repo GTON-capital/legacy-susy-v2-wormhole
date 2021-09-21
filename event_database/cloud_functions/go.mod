@@ -1,6 +1,4 @@
-module example.com/cloudfunction
-
-go 1.16
+module github.com/certusone/wormhole/event_database/cloud_functions
 
 // cloud runtime is go 1.16. just for reference.
 
