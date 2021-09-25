@@ -37,8 +37,6 @@ import (
 	"github.com/certusone/wormhole/node/pkg/supervisor"
 	"github.com/certusone/wormhole/node/pkg/vaa"
 
-	"github.com/certusone/wormhole/node/pkg/terra"
-
 	ipfslog "github.com/ipfs/go-log/v2"
 )
 
@@ -208,8 +206,8 @@ func runNode(cmd *cobra.Command, args []string) {
 		fmt.Print(devwarning)
 	}
 
-	lockMemory()
-	setRestrictiveUmask()
+	//lockMemory()
+	//setRestrictiveUmask()
 
 	// Refuse to run as root in production mode.
 	if !*unsafeDevMode && os.Geteuid() == 0 {
@@ -232,7 +230,7 @@ func runNode(cmd *cobra.Command, args []string) {
 	ipfslog.SetAllLoggers(lvl)
 
 	// Register components for readiness checks.
-	readiness.RegisterComponent(common.ReadinessEthSyncing)
+	readiness.RegisterComponent(common.ReadinessBSCSyncing)
 	readiness.RegisterComponent(common.ReadinessSolanaSyncing)
 	readiness.RegisterComponent(common.ReadinessTerraSyncing)
 
@@ -304,12 +302,12 @@ func runNode(cmd *cobra.Command, args []string) {
 	if *ethContract == "" {
 		logger.Fatal("Please specify --ethContract")
 	}
-	if *bscRPC == "" {
-		logger.Fatal("Please specify --bscRPC")
-	}
-	if *bscContract == "" {
-		logger.Fatal("Please specify --bscContract")
-	}
+	// if *bscRPC == "" {
+	// 	logger.Fatal("Please specify --bscRPC")
+	// }
+	// if *bscContract == "" {
+	// 	logger.Fatal("Please specify --bscContract")
+	// }
 	if *nodeName == "" {
 		logger.Fatal("Please specify --nodeName")
 	}
@@ -324,18 +322,18 @@ func runNode(cmd *cobra.Command, args []string) {
 		logger.Fatal("Please specify --solanaUrl")
 	}
 
-	if *terraWS == "" {
-		logger.Fatal("Please specify --terraWS")
-	}
-	if *terraLCD == "" {
-		logger.Fatal("Please specify --terraLCD")
-	}
-	if *terraChainID == "" {
-		logger.Fatal("Please specify --terraChainID")
-	}
-	if *terraContract == "" {
-		logger.Fatal("Please specify --terraContract")
-	}
+	// if *terraWS == "" {
+	// 	logger.Fatal("Please specify --terraWS")
+	// }
+	// if *terraLCD == "" {
+	// 	logger.Fatal("Please specify --terraLCD")
+	// }
+	// if *terraChainID == "" {
+	// 	logger.Fatal("Please specify --terraChainID")
+	// }
+	// if *terraContract == "" {
+	// 	logger.Fatal("Please specify --terraContract")
+	// }
 
 	if *bigTablePersistenceEnabled {
 		if *bigTableGCPProject == "" {
@@ -353,7 +351,7 @@ func runNode(cmd *cobra.Command, args []string) {
 	}
 
 	ethContractAddr := eth_common.HexToAddress(*ethContract)
-	bscContractAddr := eth_common.HexToAddress(*bscContract)
+	//bscContractAddr := eth_common.HexToAddress(*bscContract)
 	solAddress, err := solana_types.PublicKeyFromBase58(*solanaContract)
 	if err != nil {
 		logger.Fatal("invalid Solana contract address", zap.Error(err))
@@ -468,17 +466,17 @@ func runNode(cmd *cobra.Command, args []string) {
 			return err
 		}
 
-		if err := supervisor.Run(ctx, "bscwatch",
-			ethereum.NewEthWatcher(*bscRPC, bscContractAddr, "bsc", common.ReadinessBSCSyncing, vaa.ChainIDBSC, lockC, nil).Run); err != nil {
-			return err
-		}
+		// if err := supervisor.Run(ctx, "bscwatch",
+		// 	ethereum.NewEthWatcher(*bscRPC, bscContractAddr, "bsc", common.ReadinessBSCSyncing, vaa.ChainIDBSC, lockC, nil).Run); err != nil {
+		// 	return err
+		// }
 
 		// Start Terra watcher only if configured
-		logger.Info("Starting Terra watcher")
-		if err := supervisor.Run(ctx, "terrawatch",
-			terra.NewWatcher(*terraWS, *terraLCD, *terraContract, lockC, setC).Run); err != nil {
-			return err
-		}
+		// logger.Info("Starting Terra watcher")
+		// if err := supervisor.Run(ctx, "terrawatch",
+		// 	terra.NewWatcher(*terraWS, *terraLCD, *terraContract, lockC, setC).Run); err != nil {
+		// 	return err
+		// }
 
 		if err := supervisor.Run(ctx, "solwatch-confirmed",
 			solana.NewSolanaWatcher(*solanaWsRPC, *solanaRPC, solAddress, lockC, rpc.CommitmentConfirmed).Run); err != nil {
