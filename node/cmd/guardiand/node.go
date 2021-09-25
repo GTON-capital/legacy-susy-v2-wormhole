@@ -28,17 +28,17 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
-	"github.com/SuSy-One/susy-v2/node/pkg/common"
-	"github.com/SuSy-One/susy-v2/node/pkg/devnet"
-	"github.com/SuSy-One/susy-v2/node/pkg/ethereum"
-	"github.com/SuSy-One/susy-v2/node/pkg/p2p"
-	"github.com/SuSy-One/susy-v2/node/pkg/processor"
-	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
-	"github.com/SuSy-One/susy-v2/node/pkg/readiness"
-	"github.com/SuSy-One/susy-v2/node/pkg/reporter"
-	solana "github.com/SuSy-One/susy-v2/node/pkg/solana"
-	"github.com/SuSy-One/susy-v2/node/pkg/supervisor"
-	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
+	"github.com/certusone/wormhole/node/pkg/common"
+	"github.com/certusone/wormhole/node/pkg/devnet"
+	"github.com/certusone/wormhole/node/pkg/ethereum"
+	"github.com/certusone/wormhole/node/pkg/p2p"
+	"github.com/certusone/wormhole/node/pkg/processor"
+	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
+	"github.com/certusone/wormhole/node/pkg/readiness"
+	"github.com/certusone/wormhole/node/pkg/reporter"
+	solana "github.com/certusone/wormhole/node/pkg/solana"
+	"github.com/certusone/wormhole/node/pkg/supervisor"
+	"github.com/certusone/wormhole/node/pkg/vaa"
 
 	ipfslog "github.com/ipfs/go-log/v2"
 )
@@ -251,7 +251,7 @@ func runNode(cmd *cobra.Command, args []string) {
 	ipfslog.SetAllLoggers(lvl)
 
 	// Register components for readiness checks.
-	//readiness.RegisterComponent(common.ReadinessEthSyncing)
+	readiness.RegisterComponent(common.ReadinessBSCSyncing)
 	readiness.RegisterComponent(common.ReadinessSolanaSyncing)
 	//readiness.RegisterComponent(common.ReadinessTerraSyncing)
 
@@ -318,12 +318,12 @@ func runNode(cmd *cobra.Command, args []string) {
 	if *dataDir == "" {
 		logger.Fatal("Please specify --dataDir")
 	}
-// 	if *ethRPC == "" {
-// 		logger.Fatal("Please specify --ethRPC")
-// 	}
-// 	if *ethContract == "" {
-// 		logger.Fatal("Please specify --ethContract")
-// 	}
+	if *ethRPC == "" {
+		logger.Fatal("Please specify --ethRPC")
+	}
+	if *ethContract == "" {
+		logger.Fatal("Please specify --ethContract")
+	}
 	// if *bscRPC == "" {
 	// 	logger.Fatal("Please specify --bscRPC")
 	// }
@@ -343,15 +343,19 @@ func runNode(cmd *cobra.Command, args []string) {
 	if *solanaRPC == "" {
 		logger.Fatal("Please specify --solanaUrl")
 	}
-	testParam := viper.GetString("test")
-	logger.Debug(fmt.Sprintf("Karamba %s", testParam))
-	evmWatchers := []ethereum.WatcherConfig{}
-	err = viper.UnmarshalKey("evm_watchers", &evmWatchers)
-	if err != nil {
-		logger.Sugar().Fatalf("Config error %v", err)
-	}
-	// cw := viper.GetStringMap("evm_watchers")
-	// mapstructure.Decode(cw, &evmWatchers)
+
+	// if *terraWS == "" {
+	// 	logger.Fatal("Please specify --terraWS")
+	// }
+	// if *terraLCD == "" {
+	// 	logger.Fatal("Please specify --terraLCD")
+	// }
+	// if *terraChainID == "" {
+	// 	logger.Fatal("Please specify --terraChainID")
+	// }
+	// if *terraContract == "" {
+	// 	logger.Fatal("Please specify --terraContract")
+	// }
 
 	if *bigTablePersistenceEnabled {
 		if *bigTableGCPProject == "" {
@@ -368,8 +372,8 @@ func runNode(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// ethContractAddr := eth_common.HexToAddress(*ethContract)
-	// bscContractAddr := eth_common.HexToAddress(*bscContract)
+	ethContractAddr := eth_common.HexToAddress(*ethContract)
+	//bscContractAddr := eth_common.HexToAddress(*bscContract)
 	solAddress, err := solana_types.PublicKeyFromBase58(*solanaContract)
 	if err != nil {
 		logger.Fatal("invalid Solana contract address", zap.Error(err))
@@ -487,16 +491,15 @@ func runNode(cmd *cobra.Command, args []string) {
 			return err
 		}
 
-		for _, watcher := range evmWatchers {
-			watcherAddr := eth_common.HexToAddress(watcher.Contract)
-			watcherReadiness := readiness.Component(watcher.Readiness)
-			readiness.RegisterComponent(watcherReadiness)
-			if err := supervisor.Run(ctx, watcher.Name,
-				ethereum.NewEthWatcher(watcher.Url, watcherAddr, watcher.NetworkName, watcherReadiness, vaa.ChainID(watcher.ChainID), lockC, setC).Run); err != nil {
-				return err
-			}
-			vaa.ChainIdNameMatch[vaa.ChainID(watcher.ChainID)] = watcher.NetworkName
+		if err := supervisor.Run(ctx, "ethwatch",
+			ethereum.NewEthWatcher(*ethRPC, ethContractAddr, "eth", common.ReadinessEthSyncing, vaa.ChainIDEthereum, lockC, setC).Run); err != nil {
+			return err
 		}
+
+		// if err := supervisor.Run(ctx, "bscwatch",
+		// 	ethereum.NewEthWatcher(*bscRPC, bscContractAddr, "bsc", common.ReadinessBSCSyncing, vaa.ChainIDBSC, lockC, nil).Run); err != nil {
+		// 	return err
+		// }
 
 		// Start Terra watcher only if configured
 		// logger.Info("Starting Terra watcher")
