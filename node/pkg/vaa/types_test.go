@@ -133,78 +133,18 @@ func TestVerifySignature(t *testing.T) {
 	}))
 }
 
-func TestVerifySignature_RegisterChain(t *testing.T) {
-	module := make([]byte, 32)
-	copy(module, []byte("SuSyBridge"))
+func TestBodyRegisterChain_Serialize(t *testing.T) {
+	header, _ := hex.DecodeString("000000000000000000000000000000000000000000546f6b656e427269646765")
+	require.Len(t, header, 32)
 
-	emitterAddress := common.HexToAddress("0xb6Ecfe5CCB35E9a99aD1538b3748Da36AcC2f8dc")
-	// emmiterAddress := make([]byte, 32)
-	// copy(emmiterAddress, []byte("SuSyBridge"))
-
-	pk := "CiAtklXWC6R7gkbLtkMYKmnHU6t0Qv6pr+E4aD80fGJX9Q=="
-	keyBytes, err := base64.StdEncoding.DecodeString(pk)
-	handleErr(err)
-
-	encodedPK := hexutil.Encode(keyBytes)
-	fmt.Println(encodedPK)
-
-	keyBytes = keyBytes[2:]
-
-	// keyBytes := common.Hex2Bytes(key)
-	key, err := crypto.ToECDSA(keyBytes)
-	handleErr(err)
-	// if err != nil {
-	// 	return nil, common.Address{}, err
-	// }
-
-	payload := BridgeStructs_RegisterChain {
-		// module: make([]byte, 0),
-		module: module,
-		action: uint8(1),
-		chainId: 1,
-		emitterChainID: 4,
-		emitterAddress: emitterAddress.Bytes(),
-	}
-	payloadBytes, err := SerializeData(payload)
-	handleErr(err)
-
-
-	var emitterAddressCasted Address
-
-	copy(emitterAddressCasted[:], payload.emitterAddress)
-	
-	v := &VAA{
-		Version:          8,
-		GuardianSetIndex: 0,
-		Timestamp:        time.Unix(2837, 0),
-		Nonce:            5,
-		Sequence:         10,
-		ConsistencyLevel: 2,
-		EmitterChain:     ChainID(payload.emitterChainID),
-		EmitterAddress:   emitterAddressCasted,
-		Payload:          payloadBytes,
+	var headerB [32]byte
+	copy(headerB[:], header)
+	msg := &BodyRegisterChain{
+		Header:         headerB,
+		ChainID:        8,
+		EmitterAddress: Address{1, 2, 3, 4},
 	}
 
-	data, err := v.SigningMsg()
-	// require.NoError(t, err)
-
-	// key, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
-	// require.NoError(t, err)
-
-	sig, err := crypto.Sign(data.Bytes(), key)
-	handleErr(err)
-
-	sigData := [65]byte{}
-	copy(sigData[:], sig)
-
-	v.Signatures = append(v.Signatures, &Signature{
-		Index:     0,
-		Signature: sigData,
-	})
-
-	serializedVaa, err := v.Marshal()
-	handleErr(err)
-
-	fmt.Println(serializedVaa)
-	fmt.Println(hexutil.Encode(serializedVaa))
+	data := msg.Serialize()
+	require.Equal(t, "000000000000000000000000000000000000000000546f6b656e42726964676501000000080102030400000000000000000000000000000000000000000000000000000000", hex.EncodeToString(data))
 }
