@@ -3,12 +3,8 @@ package guardiand
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/btcsuite/btcutil/bech32"
-	"github.com/certusone/wormhole/node/pkg/vaa"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/mr-tron/base58"
-	"github.com/spf13/pflag"
 	"github.com/tendermint/tendermint/libs/rand"
+	"io/ioutil"
 	"log"
 	"strconv"
 	"strings"
@@ -41,14 +37,7 @@ func init() {
 
 	AdminClientContractUpgradeTemplateCmd.Flags().AddFlagSet(governanceFlagSet)
 	TemplateCmd.AddCommand(AdminClientContractUpgradeTemplateCmd)
-
-	AdminClientTokenBridgeRegisterChainCmd.Flags().AddFlagSet(governanceFlagSet)
-	AdminClientTokenBridgeRegisterChainCmd.Flags().AddFlagSet(moduleFlagSet)
 	TemplateCmd.AddCommand(AdminClientTokenBridgeRegisterChainCmd)
-
-	AdminClientTokenBridgeUpgradeContractCmd.Flags().AddFlagSet(governanceFlagSet)
-	AdminClientTokenBridgeUpgradeContractCmd.Flags().AddFlagSet(moduleFlagSet)
-	TemplateCmd.AddCommand(AdminClientTokenBridgeUpgradeContractCmd)
 }
 
 var TemplateCmd = &cobra.Command{
@@ -69,16 +58,14 @@ var AdminClientContractUpgradeTemplateCmd = &cobra.Command{
 }
 
 var AdminClientTokenBridgeRegisterChainCmd = &cobra.Command{
-	Use:   "token-bridge-register-chain",
-	Short: "Generate an empty token bridge chain registration template at specified path",
+	Use:   "token-bridge-register-chain [FILENAME]",
+	Short: "Generate an empty token bridge chain registration template at specified path (offline)",
 	Run:   runTokenBridgeRegisterChainTemplate,
+	Args:  cobra.ExactArgs(1),
 }
 
-var AdminClientTokenBridgeUpgradeContractCmd = &cobra.Command{
-	Use:   "token-bridge-upgrade-contract",
-	Short: "Generate an empty token bridge contract upgrade template at specified path",
-	Run:   runTokenBridgeUpgradeContractTemplate,
-}
+func runGuardianSetTemplate(cmd *cobra.Command, args []string) {
+	path := args[0]
 
 func runGuardianSetTemplate(cmd *cobra.Command, args []string) {
 	// Use deterministic devnet addresses as examples in the template, such that this doubles as a test fixture.
@@ -93,14 +80,10 @@ func runGuardianSetTemplate(cmd *cobra.Command, args []string) {
 
 	m := &nodev1.InjectGovernanceVAARequest{
 		CurrentSetIndex: uint32(*templateGuardianIndex),
-		Messages: []*nodev1.GovernanceMessage{
-			{
-				Sequence: rand.Uint64(),
-				Nonce:    rand.Uint32(),
-				Payload: &nodev1.GovernanceMessage_GuardianSet{
-					GuardianSet: &nodev1.GuardianSetUpdate{Guardians: guardians},
-				},
-			},
+		Sequence: 1234,
+		Nonce: rand.Uint32(),
+		Payload: &nodev1.InjectGovernanceVAARequest_GuardianSet{
+			GuardianSet: &nodev1.GuardianSetUpdate{Guardians: guardians},
 		},
 	}
 
@@ -155,17 +138,12 @@ func runTokenBridgeRegisterChainTemplate(cmd *cobra.Command, args []string) {
 
 	m := &nodev1.InjectGovernanceVAARequest{
 		CurrentSetIndex: uint32(*templateGuardianIndex),
-		Messages: []*nodev1.GovernanceMessage{
-			{
-				Sequence: rand.Uint64(),
-				Nonce:    rand.Uint32(),
-				Payload: &nodev1.GovernanceMessage_BridgeRegisterChain{
-					BridgeRegisterChain: &nodev1.BridgeRegisterChain{
-						Module:         *module,
-						ChainId:        uint32(chainID),
-						EmitterAddress: address,
-					},
-				},
+		Sequence: 1234,
+		Nonce: rand.Uint32(),
+		Payload: &nodev1.InjectGovernanceVAARequest_ContractUpgrade{
+			ContractUpgrade: &nodev1.ContractUpgrade{
+				ChainId:     1,
+				NewContract: make([]byte, 32),
 			},
 		},
 	}
@@ -259,4 +237,29 @@ func parseChainID(name string) (vaa.ChainID, error) {
 	}
 
 	return vaa.ChainID(i), nil
+}
+func runTokenBridgeRegisterChainTemplate(cmd *cobra.Command, args []string) {
+	path := args[0]
+
+	m := &nodev1.InjectGovernanceVAARequest{
+		CurrentSetIndex: uint32(*templateGuardianIndex),
+		Sequence: rand.Uint64(),
+		Nonce: rand.Uint32(),
+		Payload: &nodev1.InjectGovernanceVAARequest_TokenBridgeRegisterChain{
+			TokenBridgeRegisterChain: &nodev1.TokenBridgeRegisterChain{
+				ChainId:        5,
+				EmitterAddress: "0000000000000000000000000290FB167208Af455bB137780163b7B7a9a10C16",
+			},
+		},
+	}
+
+	b, err := prototext.MarshalOptions{Multiline: true}.Marshal(m)
+	if err != nil {
+		panic(err)
+	}
+
+	err = ioutil.WriteFile(path, b, 0640)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
