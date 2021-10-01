@@ -80,8 +80,8 @@ func runGuardianSetTemplate(cmd *cobra.Command, args []string) {
 
 	m := &nodev1.InjectGovernanceVAARequest{
 		CurrentSetIndex: uint32(*templateGuardianIndex),
-		Sequence: 1234,
-		Nonce: rand.Uint32(),
+		Sequence:        1234,
+		Nonce:           rand.Uint32(),
 		Payload: &nodev1.InjectGovernanceVAARequest_GuardianSet{
 			GuardianSet: &nodev1.GuardianSetUpdate{Guardians: guardians},
 		},
@@ -138,8 +138,8 @@ func runTokenBridgeRegisterChainTemplate(cmd *cobra.Command, args []string) {
 
 	m := &nodev1.InjectGovernanceVAARequest{
 		CurrentSetIndex: uint32(*templateGuardianIndex),
-		Sequence: 1234,
-		Nonce: rand.Uint32(),
+		Sequence:        1234,
+		Nonce:           rand.Uint32(),
 		Payload: &nodev1.InjectGovernanceVAARequest_ContractUpgrade{
 			ContractUpgrade: &nodev1.ContractUpgrade{
 				ChainId:     1,
@@ -243,10 +243,11 @@ func runTokenBridgeRegisterChainTemplate(cmd *cobra.Command, args []string) {
 
 	m := &nodev1.InjectGovernanceVAARequest{
 		CurrentSetIndex: uint32(*templateGuardianIndex),
-		Sequence: rand.Uint64(),
-		Nonce: rand.Uint32(),
-		Payload: &nodev1.InjectGovernanceVAARequest_TokenBridgeRegisterChain{
-			TokenBridgeRegisterChain: &nodev1.TokenBridgeRegisterChain{
+		Sequence:        rand.Uint64(),
+		Nonce:           rand.Uint32(),
+		Payload: &nodev1.InjectGovernanceVAARequest_BridgeRegisterChain{
+			BridgeRegisterChain: &nodev1.BridgeRegisterChain{
+				Module:         "TokenBridge",
 				ChainId:        5,
 				EmitterAddress: "0000000000000000000000000290FB167208Af455bB137780163b7B7a9a10C16",
 			},
