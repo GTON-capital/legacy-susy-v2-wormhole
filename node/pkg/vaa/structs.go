@@ -74,6 +74,10 @@ func (a Address) String() string {
 	return hex.EncodeToString(a[:])
 }
 
+func (a Address) Bytes() []byte {
+	return a[:]
+}
+
 func (a SignatureData) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%s"`, a)), nil
 }
