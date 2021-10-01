@@ -23,7 +23,7 @@ var (
 		})
 )
 
-func (p *Processor) broadcastSignature(v *vaa.VAA, signature []byte) {
+func (p *Processor) broadcastSignature(v *vaa.VAA, signature []byte, txhash []byte) {
 	digest, err := v.SigningMsg()
 	if err != nil {
 		panic(err)
@@ -33,6 +33,7 @@ func (p *Processor) broadcastSignature(v *vaa.VAA, signature []byte) {
 		Addr:      crypto.PubkeyToAddress(p.gk.PublicKey).Bytes(),
 		Hash:      digest.Bytes(),
 		Signature: signature,
+		TxHash:    txhash,
 	}
 
 	w := gossipv1.GossipMessage{Message: &gossipv1.GossipMessage_SignedObservation{SignedObservation: &obsv}}
