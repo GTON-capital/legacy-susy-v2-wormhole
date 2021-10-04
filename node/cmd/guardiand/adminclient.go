@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"log"
 	"strconv"
-	"strings"
 	"time"
 
 	publicrpcv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/publicrpc/v1"
@@ -39,10 +38,12 @@ func init() {
 	}
 
 	AdminClientInjectGuardianSetUpdateCmd.Flags().AddFlagSet(pf)
+	AdminClientFindMissingMessagesCmd.Flags().AddFlagSet(pf)
 	AdminClientListNodes.Flags().AddFlagSet(pf)
 	DumpVAAByMessageID.Flags().AddFlagSet(pf)
 
 	AdminCmd.AddCommand(AdminClientInjectGuardianSetUpdateCmd)
+	AdminCmd.AddCommand(AdminClientFindMissingMessagesCmd)
 	AdminCmd.AddCommand(AdminClientGovernanceVAAVerifyCmd)
 	AdminCmd.AddCommand(AdminClientListNodes)
 	AdminCmd.AddCommand(DumpVAAByMessageID)
@@ -65,13 +66,6 @@ var AdminClientFindMissingMessagesCmd = &cobra.Command{
 	Short: "Find sequence number gaps for the given chain ID and emitter address",
 	Run:   runFindMissingMessages,
 	Args:  cobra.ExactArgs(2),
-}
-
-var DumpVAAByMessageID = &cobra.Command{
-	Use:   "dump-vaa-by-message-id [MESSAGE_ID]",
-	Short: "Retrieve a VAA by message ID (chain/emitter/seq) and decode and dump the VAA",
-	Run:   runDumpVAAByMessageID,
-	Args:  cobra.ExactArgs(1),
 }
 
 func getAdminClient(ctx context.Context, addr string) (*grpc.ClientConn, error, nodev1.NodePrivilegedServiceClient) {
@@ -207,4 +201,37 @@ func runDumpVAAByMessageID(cmd *cobra.Command, args []string) {
 
 	log.Printf("VAA with digest %s: %+v\n", v.HexDigest(), spew.Sdump(v))
 	fmt.Printf("Bytes:\n%s\n", hex.EncodeToString(resp.VaaBytes))
+}
+
+func runFindMissingMessages(cmd *cobra.Command, args []string) {
+	chainID, err := strconv.Atoi(args[0])
+	if err != nil {
+		log.Fatalf("invalid chain ID: %v", err)
+	}
+	emitterAddress := args[1]
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conn, err, c := getAdminClient(ctx, *clientSocketPath)
+	defer conn.Close()
+	if err != nil {
+		log.Fatalf("failed to get admin client: %v", err)
+	}
+
+	msg := nodev1.FindMissingMessagesRequest{
+		EmitterChain:   uint32(chainID),
+		EmitterAddress: emitterAddress,
+	}
+	resp, err := c.FindMissingMessages(ctx, &msg)
+	if err != nil {
+		log.Fatalf("failed to run find FindMissingMessages RPC: %v", err)
+	}
+
+	for _, id := range resp.MissingMessages {
+		fmt.Println(id)
+	}
+
+	log.Printf("processed %s sequences %d to %d (%d gaps)",
+		emitterAddress, resp.FirstSequence, resp.LastSequence, len(resp.MissingMessages))
 }
