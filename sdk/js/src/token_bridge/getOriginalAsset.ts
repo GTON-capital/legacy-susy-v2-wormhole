@@ -7,7 +7,7 @@ import { buildNativeId, canonicalAddress, isNativeDenom } from "../terra";
 import { ChainId, CHAIN_ID_SOLANA, CHAIN_ID_TERRA } from "../utils";
 import { getIsWrappedAssetEth } from "./getIsWrappedAsset";
 import { LCDClient } from "@terra-money/terra.js";
-import { canonicalAddress } from "../terra";
+import { buildNativeId, canonicalAddress, isNativeDenom } from "../terra";
 
 export interface WormholeWrappedInfo {
   isWrapped: boolean;
@@ -56,6 +56,13 @@ export async function getOriginalAssetTerra(
   client: LCDClient,
   wrappedAddress: string
 ): Promise<WormholeWrappedInfo> {
+  if (isNativeDenom(wrappedAddress)) {
+    return {
+      isWrapped: false,
+      chainId: CHAIN_ID_TERRA,
+      assetAddress: buildNativeId(wrappedAddress),
+    };
+  }
   try {
     const result: {
       asset_address: string;

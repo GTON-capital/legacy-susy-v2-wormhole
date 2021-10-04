@@ -1,7 +1,8 @@
 import { Token, TOKEN_PROGRAM_ID, u64 } from "@solana/spl-token";
 import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
 import { MsgExecuteContract } from "@terra-money/terra.js";
-import { ethers } from "ethers";
+import { BigNumber, ethers } from "ethers";
+import { isNativeDenom } from "..";
 import {
   Bridge__factory,
   TokenImplementation__factory,
@@ -85,24 +86,10 @@ export async function transferFromTerra(
   recipientAddress: Uint8Array
 ) {
   const nonce = Math.round(Math.random() * 100000);
-  const isNativeAsset = ["uluna"].includes(tokenAddress);
-  return [
-    new MsgExecuteContract(
-      walletAddress,
-      tokenAddress,
-      {
-        increase_allowance: {
-          spender: tokenBridgeAddress,
-          amount: amount,
-          expires: {
-            never: {},
-          },
-        },
-      },
-      { uluna: 10000 }
-    ),
-    isNativeAsset
-      ? new MsgExecuteContract(
+  const isNativeAsset = isNativeDenom(tokenAddress);
+  return isNativeAsset
+    ? [
+        new MsgExecuteContract(
           walletAddress,
           tokenBridgeAddress,
           {
@@ -121,9 +108,29 @@ export async function transferFromTerra(
               nonce: nonce,
             },
           },
-          { uluna: 10000, [tokenAddress]: amount }
-        )
-      : new MsgExecuteContract(
+          {
+            uluna: BigNumber.from("10000")
+              .add(BigNumber.from(amount))
+              .toString(),
+          }
+        ),
+      ]
+    : [
+        new MsgExecuteContract(
+          walletAddress,
+          tokenAddress,
+          {
+            increase_allowance: {
+              spender: tokenBridgeAddress,
+              amount: amount,
+              expires: {
+                never: {},
+              },
+            },
+          },
+          { uluna: 10000 }
+        ),
+        new MsgExecuteContract(
           walletAddress,
           tokenBridgeAddress,
           {
@@ -144,7 +151,7 @@ export async function transferFromTerra(
           },
           { uluna: 10000 }
         ),
-  ];
+      ];
 }
 
 export async function transferNativeSol(
