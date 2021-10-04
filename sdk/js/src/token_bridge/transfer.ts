@@ -85,6 +85,7 @@ export async function transferFromTerra(
   recipientAddress: Uint8Array
 ) {
   const nonce = Math.round(Math.random() * 100000);
+  const isNativeAsset = ["uluna"].includes(tokenAddress);
   return [
     new MsgExecuteContract(
       walletAddress,
@@ -96,9 +97,54 @@ export async function transferFromTerra(
           expires: {
             never: {},
           },
-          {}
+        },
+      },
+      { uluna: 10000 }
+    ),
+    isNativeAsset
+      ? new MsgExecuteContract(
+          walletAddress,
+          tokenBridgeAddress,
+          {
+            initiate_transfer: {
+              asset: {
+                amount: amount,
+                info: {
+                  native_token: {
+                    denom: tokenAddress,
+                  },
+                },
+              },
+              recipient_chain: recipientChain,
+              recipient: Buffer.from(recipientAddress).toString("base64"),
+              fee: "0",
+              nonce: nonce,
+            },
+          },
+          { uluna: 10000, [tokenAddress]: amount }
+        )
+      : new MsgExecuteContract(
+          walletAddress,
+          tokenBridgeAddress,
+          {
+            initiate_transfer: {
+              asset: {
+                amount: amount,
+                info: {
+                  token: {
+                    contract_addr: tokenAddress,
+                  },
+                },
+              },
+              recipient_chain: recipientChain,
+              recipient: Buffer.from(recipientAddress).toString("base64"),
+              fee: "0",
+              nonce: nonce,
+            },
+          },
+          { uluna: 10000 }
         ),
-      ];
+  ];
 }
 
 export async function transferNativeSol(
