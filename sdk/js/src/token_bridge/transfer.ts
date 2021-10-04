@@ -82,7 +82,6 @@ export async function transferFromTerra(
   tokenBridgeAddress: string,
   tokenAddress: string,
   amount: string,
-  taxed: string,
   recipientChain: ChainId,
   recipientAddress: Uint8Array
 ) {
@@ -104,7 +103,7 @@ export async function transferFromTerra(
           {
             initiate_transfer: {
               asset: {
-                amount: taxed,
+                amount,
                 info: {
                   native_token: {
                     denom: tokenAddress,
@@ -118,8 +117,7 @@ export async function transferFromTerra(
             },
           },
           {
-            uluna: BigNumber.from("10000")
-              .toString(),
+            uluna: BigNumber.from("10000").toString(),
           }
         ),
       ]
