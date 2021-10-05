@@ -18,8 +18,8 @@
   },
   "scripts": {
     "build": "truffle compile",
-    "test": "mkdir -p build/contracts && cp node_modules/@openzeppelin/contracts/build/contracts/* build/contracts/ && truffle test",
-    "migrate": "mkdir -p build/contracts && cp node_modules/@openzeppelin/contracts/build/contracts/* build/contracts/ && truffle migrate"
+    "test": "mkdir -p build/contracts && cp node_modules/@openzeppelin/contracts/build/contracts/* build/contracts/ && truffle test --network rinkeby",
+    "migrate": "mkdir -p build/contracts && cp node_modules/@openzeppelin/contracts/build/contracts/* build/contracts/ && truffle migrate --network rinkeby"
   },
   "author": "",
   "license": "ISC",
@@ -28,6 +28,6 @@
     "elliptic": "^6.5.2",
     "ganache-cli": "^6.12.1",
     "jsonfile": "^4.0.0",
-    "solc": "^0.8.4"
+    "solc": "^0.6.9"
   }
 }

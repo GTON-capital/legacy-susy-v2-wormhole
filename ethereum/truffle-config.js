@@ -25,6 +25,14 @@ module.exports = {
             timeoutBlocks: 200,
             skipDryRun: true
         },
+        ropsten: {
+            provider: () => new HDWalletProvider(process.env.MNEMONIC, `https://ropsten.infura.io/v3/`+process.env.INFURA_KEY),
+            network_id: 4,
+            gas: 5500000,
+            confirmations: 2,
+            timeoutBlocks: 200,
+            skipDryRun: true
+        },
         goerli: {
             provider: () => {
                 return new HDWalletProvider(process.env.MNEMONIC, 'https://goerli.infura.io/v3/'+process.env.INFURA_KEY)
@@ -45,7 +53,7 @@ module.exports = {
 
     compilers: {
         solc: {
-            version: "0.8.4",
+            version: "0.8.0",
             settings: {
                  optimizer: {
                    enabled: true,
