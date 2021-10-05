@@ -3,20 +3,19 @@ import { Button, Spin, Typography } from 'antd'
 const { Title } = Typography
 import { useIntl, FormattedMessage } from 'gatsby-plugin-intl'
 import { BigTableMessage } from '~/components/ExplorerQuery/ExplorerQuery';
-// import { WasmTest } from '~/components/wasm'
+import { DecodePayload } from '~/components/Payload'
 import ReactTimeAgo from 'react-time-ago'
 import { titleStyles } from '~/styles';
 import { CloseOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Link } from 'gatsby';
-import { contractNameFormatter, nativeExplorerContractUri, nativeExplorerTxUri } from '../ExplorerStats/utils';
+import { contractNameFormatter, nativeExplorerUri } from '../ExplorerStats/utils';
 import { OutboundLink } from 'gatsby-plugin-google-gtag';
-import { chainIDs } from '~/utils/misc/constants';
-import { hexToNativeString } from '@certusone/wormhole-sdk';
 
 interface SummaryProps {
-    emitterChain: number,
-    emitterAddress: string,
-    sequence: string
+    emitterChain?: number,
+    emitterAddress?: string,
+    sequence?: string
+    txId?: string
     message: BigTableMessage
     polling?: boolean
     lastFetched?: number
@@ -26,10 +25,7 @@ interface SummaryProps {
 const Summary = (props: SummaryProps) => {
 
     const intl = useIntl()
-
-    useEffect(() => {
-        // TODO: decode the payload. if applicable lookup other relevant messages.
-    }, [props])
+    const { SignedVAA, ...message } = props.message
 
     const { EmitterChain, EmitterAddress, InitiatingTxID } = message
     // get chainId from chain name
@@ -60,7 +56,12 @@ const Summary = (props: SummaryProps) => {
                         <Title level={2} style={titleStyles}><FormattedMessage id="explorer.listening" /></Title>
                     </>
                 ) : (
-                    <Button style={buttonStylesLg} onClick={props.refetch} size="large"><FormattedMessage id="explorer.refresh" /></Button>
+                    <div>
+                        <Button onClick={props.refetch} icon={<ReloadOutlined />} size="large" shape="round" >refresh</Button>
+                        <Link to={`/${intl.locale}/explorer`} style={{ marginLeft: 8 }}>
+                            <Button icon={<CloseOutlined />} size='large' shape="round">clear</Button>
+                        </Link>
+                    </div>
                 )}
             </div>
             <div className="styled-scrollbar">
@@ -80,7 +81,18 @@ const Summary = (props: SummaryProps) => {
                     style={{ fontSize: 12, marginBottom: 20 }}
                 >{JSON.stringify(SignedVAA, undefined, 2)}</pre>
             </div>
-            <div style={{ display: 'flex', justifyContent: "flex-end" }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+
+                {props.emitterChain && props.emitterAddress && nativeExplorerUri(props.emitterChain, props.emitterAddress) ?
+                    <OutboundLink
+                        href={nativeExplorerUri(props.emitterChain, props.emitterAddress)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: 16 }}
+                    >
+                        {'View "'}{contractNameFormatter(props.emitterAddress, props.emitterChain)}{'" emitter contract on native explorer'}
+                    </OutboundLink> : <div />}
+
                 {props.lastFetched ? (
                     <span>
                         <FormattedMessage id="explorer.lastUpdated" />:&nbsp;
@@ -88,26 +100,6 @@ const Summary = (props: SummaryProps) => {
                     </span>
 
                 ) : null}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', }}>
-                {EmitterChain && EmitterAddress && nativeExplorerContractUri(chainId, EmitterAddress) ?
-                    <OutboundLink
-                        href={nativeExplorerContractUri(chainId, EmitterAddress)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: 16, marginBottom: '6px 0' }}
-                    >
-                        {'View "'}{contractNameFormatter(EmitterAddress, chainId)}{'" contract on native explorer'}
-                    </OutboundLink> : <div />}
-                {transactionId && EmitterChain ?
-                    <OutboundLink
-                        href={nativeExplorerTxUri(chainId, transactionId)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: 16, margin: '6px 0' }}
-                    >
-                        {'View transaction "'}{transactionId}{'" on native explorer'}
-                    </OutboundLink> : <div />}
             </div>
         </>
     )

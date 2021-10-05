@@ -19,7 +19,6 @@ import { ReactComponent as EthereumIcon } from '~/icons/ethereum.svg';
 import { ReactComponent as SolanaIcon } from '~/icons/solana.svg';
 import { ReactComponent as TerraIcon } from '~/icons/terra.svg';
 import { ReactComponent as PolygonIcon } from '~/icons/polygon.svg'
-import { formatQuorumDate } from '~/utils/misc/utils';
 
 interface RecentMessagesProps {
     recent: Recent
@@ -55,13 +54,13 @@ const RecentMessages = (props: RecentMessagesProps) => {
         {
             title: "message",
             key: "payload",
-            render: (item: BigTableMessage) => item.SignedVAABytes ? <DecodePayload
+            render: (item: BigTableMessage) => <DecodePayload
                 base64VAA={item.SignedVAABytes}
                 emitterChainName={item.EmitterChain}
                 emitterAddress={item.EmitterAddress}
                 showType={true}
                 showSummary={true}
-            /> : null
+            />
         },
         {
             title: "sequence",
@@ -78,7 +77,7 @@ const RecentMessages = (props: RecentMessagesProps) => {
             title: "attested",
             dataIndex: "QuorumTime",
             key: "time",
-            render: QuorumTime => <ReactTimeAgo date={Date.parse(formatQuorumDate(QuorumTime))} locale={intl.locale} timeStyle={!screens.md ? "twitter" : "round"} />
+            render: QuorumTime => <ReactTimeAgo date={new Date(QuorumTime)} locale={intl.locale} timeStyle={!screens.md ? "twitter" : "round"} />
 
         },
         {

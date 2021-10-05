@@ -1,16 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { Spin, Typography } from 'antd'
 const { Title } = Typography
 
 import { FormattedMessage } from 'gatsby-plugin-intl'
-import { arrayify, isHexString, zeroPad, hexlify } from "ethers/lib/utils";
-import { Bech32, toHex, fromHex } from "@cosmjs/encoding"
+import { arrayify, isHexString, zeroPad } from "ethers/lib/utils";
+import { Bech32, toHex } from "@cosmjs/encoding"
 import { ExplorerSummary } from '~/components/ExplorerSummary';
 import { titleStyles } from '~/styles';
 import { NetworkContext } from '~/components/NetworkSelect';
 import { getEmitterAddressSolana } from "@certusone/wormhole-sdk";
-import { ChainIDs, chainIDs } from '~/utils/misc/constants';
-import { PublicKey } from '@solana/web3.js';
+import { chainIDs } from '~/utils/misc/constants';
 
 export interface VAA {
     Version: number | string,
@@ -26,20 +25,22 @@ export interface VAA {
 }
 export interface BigTableMessage {
     InitiatingTxID?: string
-    SignedVAABytes?: string  // base64 encoded byte array
-    SignedVAA?: VAA
-    QuorumTime?: string  // "2021-08-11 00:16:11.757 +0000 UTC"
-    EmitterChain: keyof ChainIDs
+    SignedVAABytes: string  // base64 encoded byte array
+    SignedVAA: VAA
+    QuorumTime: string  // "2021-08-11 00:16:11.757 +0000 UTC"
+    EmitterChain: "solana" | "ethereum" | "terra" | "bsc"
     EmitterAddress: string
     Sequence: string
 }
 
 interface ExplorerQuery {
-    emitterChain: number,
-    emitterAddress: string,
-    sequence: string
+    emitterChain?: number,
+    emitterAddress?: string,
+    sequence?: string,
+    txId?: string,
 }
 const ExplorerQuery = (props: ExplorerQuery) => {
+    const { activeNetwork } = useContext(NetworkContext)
     const [error, setError] = useState<string>();
     const [loading, setLoading] = useState<boolean>(true);
     const [message, setMessage] = useState<BigTableMessage>();
@@ -47,55 +48,65 @@ const ExplorerQuery = (props: ExplorerQuery) => {
     const [lastFetched, setLastFetched] = useState<number>()
     const [pollInterval, setPollInterval] = useState<NodeJS.Timeout>()
 
-    const fetchMessage = (
+    const fetchMessage = async (
         emitterChain: ExplorerQuery["emitterChain"],
         emitterAddress: ExplorerQuery["emitterAddress"],
-        sequence: ExplorerQuery["sequence"]) => {
-        let paddedAddress: string
+        sequence: ExplorerQuery["sequence"],
+        txId: ExplorerQuery["txId"]) => {
+        let paddedAddress: string = ""
+        let paddedSequence: string
 
-        if (emitterChain === 1) {
-            // TODO - zero pad Solana address, if needed.
-            paddedAddress = emitterAddress
-        } else if (emitterChain === 2 || emitterChain === 4) {
-            if (isHexString(emitterAddress)) {
+        let base = `${activeNetwork.endpoints.bigtableFunctionsBase}`
+        let url = ""
 
-                let paddedAddressArray = zeroPad(arrayify(emitterAddress, { hexPad: "left" }), 32);
-
-                // TODO - properly encode the this to a hex string, Buffer is deprecated.
-                let maybeString = new Buffer(paddedAddressArray).toString('hex');
-
-            if (sequence.length <= 15) {
-                paddedSequence = sequence.padStart(16, "0")
-            } else {
-                // must already be padded
-                paddedAddress = emitterAddress
-            }
-            url = `${base}/readrow?emitterChain=${emitterChain}&emitterAddress=${paddedAddress}&sequence=${paddedSequence}`
-        } else if (txId) {
-            let transformedTxId = txId
-            if (isHexString(txId)) {
-                // valid hexString, no transformation needed.
-            } else {
-                try {
-                    let pubKey = new PublicKey(txId).toBytes()
-                    let solHex = hexlify(pubKey)
-                    transformedTxId = solHex
-                } catch (_) {
-                    // not solana, try terra
+        if (emitterChain && emitterAddress && sequence) {
+            if (emitterChain === chainIDs["solana"]) {
+                if (emitterAddress.length < 64) {
                     try {
-                        let arr = fromHex(txId)
-                        let terraHex = hexlify(arr)
-                        transformedTxId = terraHex
+                        paddedAddress = await getEmitterAddressSolana(emitterAddress)
                     } catch (_) {
                         // do nothing
                     }
+                } else {
+                    paddedAddress = emitterAddress
                 }
-            }
-            url = `${base}/transaction?id=${transformedTxId}`
-        }
+            } else if (emitterChain === chainIDs["ethereum"] || emitterChain === chainIDs["bsc"] || emitterChain === chainIDs["polygon"]) {
+                if (isHexString(emitterAddress)) {
 
-        const base = process.env.GATSBY_BIGTABLE_URL
-        const url = `${base}/?emitterChain=${emitterChain}&emitterAddress=${paddedAddress}&sequence=${sequence}`
+                    let paddedAddressArray = zeroPad(arrayify(emitterAddress, { hexPad: "left" }), 32);
+
+                    let maybeString = Buffer.from(paddedAddressArray).toString('hex');
+
+                    paddedAddress = maybeString
+                } else {
+                    // must already be padded
+                    paddedAddress = emitterAddress
+                }
+            } else if (emitterChain === chainIDs["terra"]) {
+                if (emitterAddress.startsWith('terra')) {
+                    try {
+                        paddedAddress = toHex(zeroPad(Bech32.decode(emitterAddress).data, 32))
+                    } catch (_) {
+                        // do nothing
+                    }
+                } else {
+                    paddedAddress = emitterAddress
+                }
+            } else {
+                paddedAddress = emitterAddress
+            }
+
+            if (sequence.length <= 15) {
+                paddedSequence = sequence.padStart(16, "0")
+            } else if (sequence.length >= 17) {
+                paddedSequence = sequence.slice(-16)
+            } else {
+                paddedSequence = sequence
+            }
+            url = `${base}/readrow?emitterChain=${emitterChain}&emitterAddress=${paddedAddress}&sequence=${paddedSequence}`
+        } else if (txId) {
+            url = `${base}/transaction?id=${txId}`
+        }
 
         fetch(url)
             .then<BigTableMessage>(res => {
@@ -134,12 +145,12 @@ const ExplorerQuery = (props: ExplorerQuery) => {
     }
 
     const refreshCallback = () => {
-        fetchMessage(props.emitterChain, props.emitterAddress, props.sequence)
+        fetchMessage(props.emitterChain, props.emitterAddress, props.sequence, props.txId)
     }
 
     if (polling && !pollInterval) {
         let interval = setInterval(() => {
-            fetchMessage(props.emitterChain, props.emitterAddress, props.sequence)
+            fetchMessage(props.emitterChain, props.emitterAddress, props.sequence, props.txId)
         }, 3000)
         setPollInterval(interval)
     } else if (!polling && pollInterval) {
@@ -148,15 +159,16 @@ const ExplorerQuery = (props: ExplorerQuery) => {
     }
 
     useEffect(() => {
-        if (props.emitterChain && props.emitterAddress && props.sequence) {
-            setPolling(false)
+        setPolling(false)
+        setError(undefined)
+        setMessage(undefined)
+        setLastFetched(undefined)
+        if ((props.emitterChain && props.emitterAddress && props.sequence) || props.txId) {
             setLoading(true)
-            setError(undefined)
-            setMessage(undefined)
-            fetchMessage(props.emitterChain, props.emitterAddress, props.sequence)
+            fetchMessage(props.emitterChain, props.emitterAddress, props.sequence, props.txId)
         }
 
-    }, [props.emitterChain, props.emitterAddress, props.sequence])
+    }, [props.emitterChain, props.emitterAddress, props.sequence, props.txId, activeNetwork.endpoints.bigtableFunctionsBase])
 
     useEffect(() => {
         return function cleanup() {
@@ -164,7 +176,7 @@ const ExplorerQuery = (props: ExplorerQuery) => {
                 clearInterval(pollInterval)
             }
         };
-    }, [polling])
+    }, [polling, activeNetwork.endpoints.bigtableFunctionsBase])
 
 
     return (
