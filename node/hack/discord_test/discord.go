@@ -50,9 +50,4 @@ func main() {
 		"Certus One", "Not Certus One"}); err != nil {
 		logger.Fatal("failed to send test message", zap.Error(err))
 	}
-
-	if err := d.MissingSignaturesOnTransaction(v, 14, 13, true, []string{
-		"Certus One"}); err != nil {
-		logger.Fatal("failed to send test message", zap.Error(err))
-	}
 }
