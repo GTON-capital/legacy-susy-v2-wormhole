@@ -1,7 +1,9 @@
 import {
-  CHAIN_ID_ETH,
+  ChainId,
   CHAIN_ID_SOLANA,
   getClaimAddressSolana,
+  hexToUint8Array,
+  parseNFTPayload,
   postVaaSolana,
 } from "@certusone/wormhole-sdk";
 import {
@@ -25,26 +27,28 @@ import { setIsRedeeming, setRedeemTx } from "../store/nftSlice";
 import { selectNFTIsRedeeming, selectNFTTargetChain } from "../store/selectors";
 import { hexToUint8Array } from "../utils/array";
 import {
-  ETH_NFT_BRIDGE_ADDRESS,
+  getNFTBridgeAddressForChain,
   SOLANA_HOST,
   SOL_BRIDGE_ADDRESS,
   SOL_NFT_BRIDGE_ADDRESS,
 } from "../utils/consts";
+import { isEVMChain } from "../utils/ethereum";
 import { getMetadataAddress } from "../utils/metaplex";
 import parseError from "../utils/parseError";
 import { signSendAndConfirm } from "../utils/solana";
 import useNFTSignedVAA from "./useNFTSignedVAA";
 
-async function eth(
+async function evm(
   dispatch: any,
   enqueueSnackbar: any,
   signer: Signer,
-  signedVAA: Uint8Array
+  signedVAA: Uint8Array,
+  chainId: ChainId
 ) {
   dispatch(setIsRedeeming(true));
   try {
     const receipt = await redeemOnEth(
-      ETH_NFT_BRIDGE_ADDRESS,
+      getNFTBridgeAddressForChain(chainId),
       signer,
       signedVAA
     );
@@ -142,8 +146,8 @@ export function useHandleNFTRedeem() {
   const signedVAA = useNFTSignedVAA();
   const isRedeeming = useSelector(selectNFTIsRedeeming);
   const handleRedeemClick = useCallback(() => {
-    if (targetChain === CHAIN_ID_ETH && !!signer && signedVAA) {
-      eth(dispatch, enqueueSnackbar, signer, signedVAA);
+    if (isEVMChain(targetChain) && !!signer && signedVAA) {
+      evm(dispatch, enqueueSnackbar, signer, signedVAA, targetChain);
     } else if (
       targetChain === CHAIN_ID_SOLANA &&
       !!solanaWallet &&

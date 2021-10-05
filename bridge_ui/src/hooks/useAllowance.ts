@@ -1,16 +1,12 @@
-import {
-  approveEth,
-  ChainId,
-  CHAIN_ID_ETH,
-  getAllowanceEth,
-} from "@certusone/wormhole-sdk";
+import { approveEth, ChainId, getAllowanceEth } from "@certusone/wormhole-sdk";
 import { BigNumber } from "ethers";
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useEthereumProvider } from "../contexts/EthereumProviderContext";
 import { selectTransferIsApproving } from "../store/selectors";
 import { setIsApproving } from "../store/transferSlice";
-import { ETH_TOKEN_BRIDGE_ADDRESS } from "../utils/consts";
+import { getTokenBridgeAddressForChain } from "../utils/consts";
+import { isEVMChain } from "../utils/ethereum";
 
 export default function useAllowance(
   chainId: ChainId,
@@ -25,19 +21,17 @@ export default function useAllowance(
   const { signer } = useEthereumProvider();
   const sufficientAllowance =
     !isEVMChain(chainId) ||
-    sourceIsNative ||
     (allowance && transferAmount && allowance >= transferAmount);
 
   useEffect(() => {
     let cancelled = false;
-    if (
-      chainId === CHAIN_ID_ETH &&
-      tokenAddress &&
-      signer &&
-      !isApproveProcessing
-    ) {
+    if (isEVMChain(chainId) && tokenAddress && signer && !isApproveProcessing) {
       setIsAllowanceFetching(true);
-      getAllowanceEth(ETH_TOKEN_BRIDGE_ADDRESS, tokenAddress, signer).then(
+      getAllowanceEth(
+        getTokenBridgeAddressForChain(chainId),
+        tokenAddress,
+        signer
+      ).then(
         (result) => {
           if (!cancelled) {
             setIsAllowanceFetching(false);
@@ -59,14 +53,14 @@ export default function useAllowance(
   }, [chainId, tokenAddress, signer, isApproveProcessing]);
 
   const approveAmount: (amount: BigInt) => Promise<any> = useMemo(() => {
-    return chainId !== CHAIN_ID_ETH || !tokenAddress || !signer
+    return !isEVMChain(chainId) || !tokenAddress || !signer
       ? (amount: BigInt) => {
           return Promise.resolve();
         }
       : (amount: BigInt) => {
           dispatch(setIsApproving(true));
           return approveEth(
-            ETH_TOKEN_BRIDGE_ADDRESS,
+            getTokenBridgeAddressForChain(chainId),
             tokenAddress,
             signer,
             BigNumber.from(amount)

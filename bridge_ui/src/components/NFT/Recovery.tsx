@@ -1,7 +1,5 @@
 import {
   ChainId,
-  CHAIN_ID_BSC,
-  CHAIN_ID_ETH,
   CHAIN_ID_SOLANA,
   getEmitterAddressEth,
   getEmitterAddressSolana,
@@ -38,18 +36,14 @@ import {
   selectNFTSourceChain,
 } from "../../store/selectors";
 import {
-  hexToNativeString,
-  hexToUint8Array,
-  uint8ArrayToHex,
-} from "../../utils/array";
-import {
-  CHAINS,
-  ETH_BRIDGE_ADDRESS,
-  ETH_NFT_BRIDGE_ADDRESS,
+  CHAINS_WITH_NFT_SUPPORT,
+  getBridgeAddressForChain,
+  getNFTBridgeAddressForChain,
   SOLANA_HOST,
   SOL_NFT_BRIDGE_ADDRESS,
   WORMHOLE_RPC_HOSTS,
 } from "../../utils/consts";
+import { isEVMChain } from "../../utils/ethereum";
 import { getSignedVAAWithRetry } from "../../utils/getSignedVAAWithRetry";
 import { METADATA_REPLACE } from "../../utils/metaplex";
 import parseError from "../../utils/parseError";
@@ -63,17 +57,23 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-async function eth(
+async function evm(
   provider: ethers.providers.Web3Provider,
   tx: string,
-  enqueueSnackbar: any
+  enqueueSnackbar: any,
+  chainId: ChainId
 ) {
   try {
     const receipt = await provider.getTransactionReceipt(tx);
-    const sequence = parseSequenceFromLogEth(receipt, ETH_BRIDGE_ADDRESS);
-    const emitterAddress = getEmitterAddressEth(ETH_NFT_BRIDGE_ADDRESS);
+    const sequence = parseSequenceFromLogEth(
+      receipt,
+      getBridgeAddressForChain(chainId)
+    );
+    const emitterAddress = getEmitterAddressEth(
+      getNFTBridgeAddressForChain(chainId)
+    );
     const { vaaBytes } = await getSignedVAAWithRetry(
-      CHAIN_ID_ETH,
+      chainId,
       emitterAddress,
       sequence.toString(),
       WORMHOLE_RPC_HOSTS.length
@@ -183,14 +183,15 @@ function RecoveryDialogContent({
   useEffect(() => {
     if (recoverySourceTx) {
       let cancelled = false;
-      if (recoverySourceChain === CHAIN_ID_ETH && provider) {
+      if (isEVMChain(recoverySourceChain) && provider) {
         setRecoverySourceTxError("");
         setRecoverySourceTxIsLoading(true);
         (async () => {
-          const { vaa, error } = await eth(
+          const { vaa, error } = await evm(
             provider,
             recoverySourceTx,
-            enqueueSnackbar
+            enqueueSnackbar,
+            recoverySourceChain
           );
           if (!cancelled) {
             setRecoverySourceTxIsLoading(false);
@@ -303,16 +304,13 @@ function RecoveryDialogContent({
           fullWidth
           margin="normal"
         >
-          {CHAINS.filter(
-            ({ id }) => id === CHAIN_ID_ETH || id === CHAIN_ID_SOLANA
-          ).map(({ id, name }) => (
+          {CHAINS_WITH_NFT_SUPPORT.map(({ id, name }) => (
             <MenuItem key={id} value={id}>
               {name}
             </MenuItem>
           ))}
         </TextField>
-        {recoverySourceChain === CHAIN_ID_ETH ||
-        recoverySourceChain === CHAIN_ID_BSC ? (
+        {isEVMChain(recoverySourceChain) ? (
           <KeyAndBalance chainId={recoverySourceChain} />
         ) : null}
         <TextField

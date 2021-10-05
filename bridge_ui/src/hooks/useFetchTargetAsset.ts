@@ -1,5 +1,4 @@
 import {
-  ChainId,
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
   getForeignAssetEth,
@@ -38,14 +37,16 @@ import {
 import { setTargetAsset as setTransferTargetAsset } from "../store/transferSlice";
 import { hexToNativeString, hexToUint8Array } from "../utils/array";
 import {
-  ETH_NFT_BRIDGE_ADDRESS,
-  ETH_TOKEN_BRIDGE_ADDRESS,
+  getEvmChainId,
+  getNFTBridgeAddressForChain,
+  getTokenBridgeAddressForChain,
   SOLANA_HOST,
   SOL_NFT_BRIDGE_ADDRESS,
   SOL_TOKEN_BRIDGE_ADDRESS,
   TERRA_HOST,
   TERRA_TOKEN_BRIDGE_ADDRESS,
 } from "../utils/consts";
+import { isEVMChain } from "../utils/ethereum";
 
 function useFetchTargetAsset(nft?: boolean) {
   const dispatch = useDispatch();
@@ -69,45 +70,6 @@ function useFetchTargetAsset(nft?: boolean) {
   const { provider, chainId: evmChainId } = useEthereumProvider();
   const correctEvmNetwork = getEvmChainId(targetChain);
   const hasCorrectEvmNetwork = evmChainId === correctEvmNetwork;
-  const isRecovery = useSelector(
-    nft ? selectNFTIsRecovery : selectTransferIsRecovery
-  );
-  const [lastSuccessfulArgs, setLastSuccessfulArgs] = useState<{
-    isSourceAssetWormholeWrapped: boolean | undefined;
-    originChain: ChainId | undefined;
-    originAsset: string | undefined;
-    targetChain: ChainId;
-    nft?: boolean;
-    tokenId?: string;
-  } | null>(null);
-  const argsMatchLastSuccess =
-    !!lastSuccessfulArgs &&
-    lastSuccessfulArgs.isSourceAssetWormholeWrapped ===
-      isSourceAssetWormholeWrapped &&
-    lastSuccessfulArgs.originChain === originChain &&
-    lastSuccessfulArgs.originAsset === originAsset &&
-    lastSuccessfulArgs.targetChain === targetChain &&
-    lastSuccessfulArgs.nft === nft &&
-    lastSuccessfulArgs.tokenId === tokenId;
-  const setArgs = useCallback(
-    () =>
-      setLastSuccessfulArgs({
-        isSourceAssetWormholeWrapped,
-        originChain,
-        originAsset,
-        targetChain,
-        nft,
-        tokenId,
-      }),
-    [
-      isSourceAssetWormholeWrapped,
-      originChain,
-      originAsset,
-      targetChain,
-      nft,
-      tokenId,
-    ]
-  );
   useEffect(() => {
     if (isRecovery || argsMatchLastSuccess) {
       return;
@@ -125,25 +87,27 @@ function useFetchTargetAsset(nft?: boolean) {
       setArgs();
       return;
     }
+    // TODO: loading state, error state
     let cancelled = false;
     (async () => {
       if (
-        targetChain === CHAIN_ID_ETH &&
+        isEVMChain(targetChain) &&
         provider &&
+        hasCorrectEvmNetwork &&
         originChain &&
         originAsset
       ) {
-        dispatch(setTargetAsset(fetchDataWrapper()));
+        dispatch(setTargetAsset(undefined));
         try {
           const asset = await (nft
             ? getForeignAssetEthNFT(
-                ETH_NFT_BRIDGE_ADDRESS,
+                getNFTBridgeAddressForChain(targetChain),
                 provider,
                 originChain,
                 hexToUint8Array(originAsset)
               )
             : getForeignAssetEth(
-                ETH_TOKEN_BRIDGE_ADDRESS,
+                getTokenBridgeAddressForChain(targetChain),
                 provider,
                 originChain,
                 hexToUint8Array(originAsset)
@@ -172,7 +136,7 @@ function useFetchTargetAsset(nft?: boolean) {
         }
       }
       if (targetChain === CHAIN_ID_SOLANA && originChain && originAsset) {
-        dispatch(setTargetAsset(fetchDataWrapper()));
+        dispatch(setTargetAsset(undefined));
         try {
           const connection = new Connection(SOLANA_HOST, "confirmed");
           const asset = await (nft
@@ -209,7 +173,7 @@ function useFetchTargetAsset(nft?: boolean) {
         }
       }
       if (targetChain === CHAIN_ID_TERRA && originChain && originAsset) {
-        dispatch(setTargetAsset(fetchDataWrapper()));
+        dispatch(setTargetAsset(undefined));
         try {
           const lcd = new LCDClient(TERRA_HOST);
           const asset = await getForeignAssetTerra(
@@ -253,8 +217,6 @@ function useFetchTargetAsset(nft?: boolean) {
     setTargetAsset,
     tokenId,
     hasCorrectEvmNetwork,
-    argsMatchLastSuccess,
-    setArgs,
   ]);
 }
 

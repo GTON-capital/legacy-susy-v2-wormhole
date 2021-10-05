@@ -1,6 +1,5 @@
 import {
   ChainId,
-  CHAIN_ID_ETH,
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
 } from "@certusone/wormhole-sdk";
@@ -9,7 +8,8 @@ import { useConnectedWallet } from "@terra-money/wallet-provider";
 import { useCallback, useMemo } from "react";
 import { useEthereumProvider } from "../contexts/EthereumProviderContext";
 import { useSolanaWallet } from "../contexts/SolanaWalletContext";
-import { CLUSTER, ETH_NETWORK_CHAIN_ID } from "../utils/consts";
+import { CLUSTER, getEvmChainId } from "../utils/consts";
+import { isEVMChain } from "../utils/ethereum";
 
 const createWalletStatus = (
   isReady: boolean,
@@ -40,10 +40,11 @@ function useIsWalletReady(
   const {
     provider,
     signerAddress,
-    chainId: ethChainId,
+    chainId: evmChainId,
   } = useEthereumProvider();
   const hasEthInfo = !!provider && !!signerAddress;
-  const hasCorrectEthNetwork = ethChainId === ETH_NETWORK_CHAIN_ID;
+  const correctEvmNetwork = getEvmChainId(chainId);
+  const hasCorrectEvmNetwork = evmChainId === correctEvmNetwork;
 
   const forceNetworkSwitch = useCallback(() => {
     if (provider && correctEvmNetwork) {
@@ -82,20 +83,18 @@ function useIsWalletReady(
     }
     if (isEVMChain(chainId) && hasEthInfo && signerAddress) {
       if (hasCorrectEvmNetwork) {
-        return createWalletStatus(
-          true,
-          undefined,
-          forceNetworkSwitch,
-          signerAddress
-        );
+        return createWalletStatus(true, undefined, signerAddress);
       } else {
-        if (provider && correctEvmNetwork && autoSwitch) {
-          forceNetworkSwitch();
+        if (provider && correctEvmNetwork) {
+          try {
+            provider.send("wallet_switchEthereumChain", [
+              { chainId: hexStripZeros(hexlify(correctEvmNetwork)) },
+            ]);
+          } catch (e) {}
         }
         return createWalletStatus(
           false,
           `Wallet is not connected to ${CLUSTER}. Expected Chain ID: ${correctEvmNetwork}`,
-          forceNetworkSwitch,
           undefined
         );
       }
@@ -114,7 +113,8 @@ function useIsWalletReady(
     hasTerraWallet,
     solPK,
     hasEthInfo,
-    hasCorrectEthNetwork,
+    correctEvmNetwork,
+    hasCorrectEvmNetwork,
     provider,
     signerAddress,
     terraWallet,

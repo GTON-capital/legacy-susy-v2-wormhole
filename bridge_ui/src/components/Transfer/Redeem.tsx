@@ -1,4 +1,9 @@
-import { CHAIN_ID_ETH } from "@certusone/wormhole-sdk";
+import {
+  CHAIN_ID_BSC,
+  CHAIN_ID_ETH,
+  CHAIN_ID_SOLANA,
+  WSOL_ADDRESS,
+} from "@certusone/wormhole-sdk";
 import { Checkbox, FormControlLabel } from "@material-ui/core";
 import { useCallback, useState } from "react";
 import { useSelector } from "react-redux";
@@ -8,7 +13,7 @@ import {
   selectTransferTargetAsset,
   selectTransferTargetChain,
 } from "../../store/selectors";
-import { WETH_ADDRESS } from "../../utils/consts";
+import { WBNB_ADDRESS, WETH_ADDRESS } from "../../utils/consts";
 import ButtonWithLoader from "../ButtonWithLoader";
 import KeyAndBalance from "../KeyAndBalance";
 import StepDescription from "../StepDescription";
@@ -23,8 +28,17 @@ function Redeem() {
   //TODO better check, probably involving a hook & the VAA
   const isNativeEligible =
     targetChain === CHAIN_ID_ETH &&
-    targetAssetHex &&
-    targetAssetHex.toLowerCase() === WETH_ADDRESS.toLowerCase();
+    targetAsset &&
+    targetAsset.toLowerCase() === WETH_ADDRESS.toLowerCase();
+  const isBscNative =
+    targetChain === CHAIN_ID_BSC &&
+    targetAsset &&
+    targetAsset.toLowerCase() === WBNB_ADDRESS.toLowerCase();
+  const isSolNative =
+    targetChain === CHAIN_ID_SOLANA &&
+    targetAsset &&
+    targetAsset === WSOL_ADDRESS;
+  const isNativeEligible = isEthNative || isBscNative || isSolNative;
   const [useNativeRedeem, setUseNativeRedeem] = useState(true);
   const toggleNativeRedeem = useCallback(() => {
     setUseNativeRedeem(!useNativeRedeem);

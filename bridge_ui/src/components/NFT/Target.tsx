@@ -1,4 +1,8 @@
-import { CHAIN_ID_ETH, CHAIN_ID_SOLANA } from "@certusone/wormhole-sdk";
+import {
+  CHAIN_ID_SOLANA,
+  hexToNativeString,
+  hexToUint8Array,
+} from "@certusone/wormhole-sdk";
 import { makeStyles, MenuItem, TextField, Typography } from "@material-ui/core";
 import { Alert } from "@material-ui/lab";
 import { PublicKey } from "@solana/web3.js";
@@ -22,8 +26,8 @@ import {
   selectNFTTargetChain,
   selectNFTTargetError,
 } from "../../store/selectors";
-import { hexToNativeString, hexToUint8Array } from "../../utils/array";
-import { CHAINS, CHAINS_BY_ID } from "../../utils/consts";
+import { CHAINS_BY_ID, CHAINS_WITH_NFT_SUPPORT } from "../../utils/consts";
+import { isEVMChain } from "../../utils/ethereum";
 import ButtonWithLoader from "../ButtonWithLoader";
 import KeyAndBalance from "../KeyAndBalance";
 import LowBalanceWarning from "../LowBalanceWarning";
@@ -44,7 +48,7 @@ function Target() {
   const dispatch = useDispatch();
   const sourceChain = useSelector(selectNFTSourceChain);
   const chains = useMemo(
-    () => CHAINS.filter((c) => c.id !== sourceChain),
+    () => CHAINS_WITH_NFT_SUPPORT.filter((c) => c.id !== sourceChain),
     [sourceChain]
   );
   const targetChain = useSelector(selectNFTTargetChain);
@@ -89,15 +93,12 @@ function Target() {
         fullWidth
         value={targetChain}
         onChange={handleTargetChange}
-        disabled={true}
       >
-        {chains
-          .filter(({ id }) => id === CHAIN_ID_ETH || id === CHAIN_ID_SOLANA)
-          .map(({ id, name }) => (
-            <MenuItem key={id} value={id}>
-              {name}
-            </MenuItem>
-          ))}
+        {chains.map(({ id, name }) => (
+          <MenuItem key={id} value={id}>
+            {name}
+          </MenuItem>
+        ))}
       </TextField>
       <KeyAndBalance chainId={targetChain} balance={uiAmountString} />
       <TextField
@@ -116,7 +117,7 @@ function Target() {
             value={targetAsset || ""}
             disabled={true}
           />
-          {targetChain === CHAIN_ID_ETH ? (
+          {isEVMChain(targetChain) ? (
             <TextField
               label="TokenId"
               fullWidth
@@ -132,8 +133,8 @@ function Target() {
           You will have to pay transaction fees on{" "}
           {CHAINS_BY_ID[targetChain].name} to redeem your NFT.
         </Typography>
-        {targetChain === CHAIN_ID_ETH && (
-          <EthGasEstimateSummary methodType="nft" />
+        {isEVMChain(targetChain) && (
+          <EthGasEstimateSummary methodType="nft" chainId={targetChain} />
         )}
       </Alert>
       <LowBalanceWarning chainId={targetChain} />

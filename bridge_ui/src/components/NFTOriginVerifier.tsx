@@ -29,15 +29,16 @@ import { COLORS } from "../muiTheme";
 import { NFTParsedTokenAccount } from "../store/nftSlice";
 import { hexToNativeString, uint8ArrayToHex } from "../utils/array";
 import {
-  CHAINS,
   CHAINS_BY_ID,
-  ETH_NFT_BRIDGE_ADDRESS,
+  CHAINS_WITH_NFT_SUPPORT,
+  getNFTBridgeAddressForChain,
   SOLANA_HOST,
   SOL_NFT_BRIDGE_ADDRESS,
 } from "../utils/consts";
 import {
   ethNFTToNFTParsedTokenAccount,
   getEthereumNFT,
+  isEVMChain,
   isNFT,
   isValidEthereumAddress,
 } from "../utils/ethereum";
@@ -118,7 +119,7 @@ export default function NFTOriginVerifier() {
       isReady &&
       provider &&
       signerAddress &&
-      lookupChain === CHAIN_ID_ETH &&
+      isEVMChain(lookupChain) &&
       lookupAsset &&
       lookupTokenId
     ) {
@@ -135,10 +136,11 @@ export default function NFTOriginVerifier() {
                 signerAddress
               );
               const info = await getOriginalAssetEth(
-                ETH_NFT_BRIDGE_ADDRESS,
+                getNFTBridgeAddressForChain(lookupChain),
                 provider,
                 lookupAsset,
-                lookupTokenId
+                lookupTokenId,
+                lookupChain
               );
               if (!cancelled) {
                 setIsLoading(false);
@@ -224,7 +226,7 @@ export default function NFTOriginVerifier() {
       originInfo.chainId
     );
   const displayError =
-    (lookupChain === CHAIN_ID_ETH && statusMessage) || lookupError;
+    (isEVMChain(lookupChain) && statusMessage) || lookupError;
   return (
     <div>
       <Container maxWidth="md">
@@ -246,15 +248,13 @@ export default function NFTOriginVerifier() {
             fullWidth
             margin="normal"
           >
-            {CHAINS.filter(
-              ({ id }) => id === CHAIN_ID_ETH || id === CHAIN_ID_SOLANA
-            ).map(({ id, name }) => (
+            {CHAINS_WITH_NFT_SUPPORT.map(({ id, name }) => (
               <MenuItem key={id} value={id}>
                 {name}
               </MenuItem>
             ))}
           </TextField>
-          {lookupChain === CHAIN_ID_ETH || lookupChain === CHAIN_ID_BSC ? (
+          {isEVMChain(lookupChain) ? (
             <KeyAndBalance chainId={lookupChain} />
           ) : null}
           <TextField
@@ -264,7 +264,7 @@ export default function NFTOriginVerifier() {
             value={lookupAsset}
             onChange={handleAssetChange}
           />
-          {lookupChain === CHAIN_ID_ETH ? (
+          {isEVMChain(lookupChain) ? (
             <TextField
               fullWidth
               margin="normal"
@@ -314,6 +314,16 @@ export default function NFTOriginVerifier() {
                     variant="outlined"
                   >
                     View on Solscan
+                  </Button>
+                ) : originInfo.chainId === CHAIN_ID_BSC ? (
+                  <Button
+                    href={`https://bscscan.com/token/${readableAddress}?a=${originInfo.tokenId}`}
+                    target="_blank"
+                    endIcon={<Launch />}
+                    className={classes.viewButton}
+                    variant="outlined"
+                  >
+                    View on BscScan
                   </Button>
                 ) : (
                   <Button
