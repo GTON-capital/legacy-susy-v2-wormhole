@@ -230,7 +230,7 @@ func runNode(cmd *cobra.Command, args []string) {
 	ipfslog.SetAllLoggers(lvl)
 
 	// Register components for readiness checks.
-	readiness.RegisterComponent(common.ReadinessBSCSyncing)
+	readiness.RegisterComponent(common.ReadinessEthSyncing)
 	readiness.RegisterComponent(common.ReadinessSolanaSyncing)
 	readiness.RegisterComponent(common.ReadinessTerraSyncing)
 

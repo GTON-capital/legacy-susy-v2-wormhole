@@ -1,0 +1,7 @@
+timestamp:  1605744545
+guardian_set:  {
+  guardians:  {
+    pubkey:  "0xbeFA429d57cD18b7F8A4d91A2da9AB4AF05d0FBe"
+    name:  "Example validator 0"
+  }
+}

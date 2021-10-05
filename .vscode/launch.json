@@ -1,0 +1,43 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Package",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/node",
+            "args": [
+                "node",
+                "--bootstrap",
+                "/dns4/127.0.0.1/udp/8999/quic/p2p/12D3KooWGKukUqqgbMFerWMUCkhy2SWXdyU7yvg3324RszWmN6vf",
+                "--network", 
+                "/wormhole/testnet/2", 
+                "--ethContract",
+                "0x1A3C4ebA6E09f8fdAb71ED470aea6FA00e44d976",
+                "--solanaContract",
+                "Brdguy7BmNB4qwEbcqqMbyV5CyJd2sxQNUn6NEpMSsUb",
+                "--adminSocket",
+                "/home/anaximen/wormhole/admin.socket",
+                "--dataDir",
+                "/home/anaximen/wormhole/data",
+                "--nodeName",
+                "NodeyMcNodeface",
+                "--nodeKey",
+                "/home/anaximen/wormhole/node.key",
+                "--guardianKey",
+                "/home/anaximen/wormhole/guardiand.key",
+                "--ethRPC",
+                "wss://ropsten.infura.io/ws/v3/912428899eec4924a9d12ae1d8c5ccfb",
+                "--solanaRPC",
+                "https://api.devnet.solana.com",
+                "--solanaWS",
+                "wss://api.devnet.solana.com",
+                "--statusAddr=[::]:6060"
+            ]
+        }
+    ]
+}
