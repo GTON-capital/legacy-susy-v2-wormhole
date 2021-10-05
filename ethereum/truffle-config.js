@@ -5,7 +5,7 @@ module.exports = {
     networks: {
         development: {
             host: "127.0.0.1",
-            port: 8545,
+            port: 7545,
             network_id: "*",
         },
         mainnet: {
@@ -27,10 +27,10 @@ module.exports = {
         },
         ropsten: {
             provider: () => new HDWalletProvider(process.env.MNEMONIC, `https://ropsten.infura.io/v3/`+process.env.INFURA_KEY),
-            network_id: 4,
+            network_id: 3,
             gas: 5500000,
-            confirmations: 2,
-            timeoutBlocks: 200,
+            confirmations: 1,
+            timeoutBlocks: 100,
             skipDryRun: true
         },
         goerli: {
@@ -53,7 +53,7 @@ module.exports = {
 
     compilers: {
         solc: {
-            version: "0.8.0",
+            version: "0.8.4",
             settings: {
                  optimizer: {
                    enabled: true,
@@ -69,6 +69,6 @@ module.exports = {
     ],
 
     api_keys: {
-        etherscan: process.env.ETHERSCAN_KEY
+        etherscan: 'K5KZ6G1N1IEGDJNDQG9VAGW3SBW2EZYN4N'
     },
 };
