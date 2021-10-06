@@ -22,6 +22,7 @@ import { Launch } from "@material-ui/icons";
 import { Alert } from "@material-ui/lab";
 import { Connection } from "@solana/web3.js";
 import { useCallback, useEffect, useState } from "react";
+import { useBetaContext } from "../contexts/BetaContext";
 import { useEthereumProvider } from "../contexts/EthereumProviderContext";
 import useIsWalletReady from "../hooks/useIsWalletReady";
 import { getMetaplexData } from "../hooks/useMetaplexData";
@@ -29,6 +30,7 @@ import { COLORS } from "../muiTheme";
 import { NFTParsedTokenAccount } from "../store/nftSlice";
 import { hexToNativeString, uint8ArrayToHex } from "../utils/array";
 import {
+  BETA_CHAINS,
   CHAINS_BY_ID,
   CHAINS_WITH_NFT_SUPPORT,
   getNFTBridgeAddressForChain,
@@ -64,11 +66,10 @@ const useStyles = makeStyles((theme) => ({
     WebkitTextFillColor: "transparent",
     MozBackgroundClip: "text",
     MozTextFillColor: "transparent",
-    filter: `drop-shadow( 0px 0px 8px ${COLORS.nearBlack}) drop-shadow( 0px 0px 14px ${COLORS.nearBlack}) drop-shadow( 0px 0px 24px ${COLORS.nearBlack})`,
+    // filter: `drop-shadow( 0px 0px 8px ${COLORS.nearBlack}) drop-shadow( 0px 0px 14px ${COLORS.nearBlack}) drop-shadow( 0px 0px 24px ${COLORS.nearBlack})`,
   },
   mainCard: {
     padding: theme.spacing(1),
-    borderRadius: "5px",
     backgroundColor: COLORS.nearBlackWithMinorTransparency,
   },
   originHeader: {
@@ -88,6 +89,7 @@ const useStyles = makeStyles((theme) => ({
 
 export default function NFTOriginVerifier() {
   const classes = useStyles();
+  const isBeta = useBetaContext();
   const { provider, signerAddress } = useEthereumProvider();
   const [lookupChain, setLookupChain] = useState(CHAIN_ID_ETH);
   const { isReady, statusMessage } = useIsWalletReady(lookupChain);
@@ -230,9 +232,11 @@ export default function NFTOriginVerifier() {
   return (
     <div>
       <Container maxWidth="md">
-        <HeaderText white small>
-          NFT Origin Verifier
-        </HeaderText>
+        <div className={classes.centeredContainer}>
+          <Typography variant="h1" className={classes.header}>
+            <span className={classes.linearGradient}>NFT Origin Verifier</span>
+          </Typography>
+        </div>
       </Container>
       <Container maxWidth="sm">
         <Card className={classes.mainCard}>
@@ -242,13 +246,16 @@ export default function NFTOriginVerifier() {
           </Alert>
           <TextField
             select
+            variant="outlined"
             label="Chain"
             value={lookupChain}
             onChange={handleChainChange}
             fullWidth
             margin="normal"
           >
-            {CHAINS_WITH_NFT_SUPPORT.map(({ id, name }) => (
+            {CHAINS_WITH_NFT_SUPPORT.filter(({ id }) =>
+              isBeta ? true : !BETA_CHAINS.includes(id)
+            ).map(({ id, name }) => (
               <MenuItem key={id} value={id}>
                 {name}
               </MenuItem>
@@ -259,6 +266,7 @@ export default function NFTOriginVerifier() {
           ) : null}
           <TextField
             fullWidth
+            variant="outlined"
             margin="normal"
             label="Paste an address"
             value={lookupAsset}
@@ -267,6 +275,7 @@ export default function NFTOriginVerifier() {
           {isEVMChain(lookupChain) ? (
             <TextField
               fullWidth
+              variant="outlined"
               margin="normal"
               label="Paste a tokenId"
               value={lookupTokenId}

@@ -1,9 +1,9 @@
 import { CHAIN_ID_ETH, CHAIN_ID_SOLANA } from "@certusone/wormhole-sdk";
 import { Button, makeStyles, MenuItem, TextField } from "@material-ui/core";
-import { Restore } from "@material-ui/icons";
 import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useHistory } from "react-router";
+import { useBetaContext } from "../../contexts/BetaContext";
 import useIsWalletReady from "../../hooks/useIsWalletReady";
 import {
   selectTransferAmount,
@@ -20,6 +20,7 @@ import {
   setSourceChain,
 } from "../../store/transferSlice";
 import {
+  BETA_CHAINS,
   CHAINS,
   ETH_MIGRATION_ASSET_MAP,
   MIGRATION_ASSET_MAP,
@@ -37,13 +38,10 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-function Source({
-  setIsRecoveryOpen,
-}: {
-  setIsRecoveryOpen: (open: boolean) => void;
-}) {
+function Source() {
   const classes = useStyles();
   const dispatch = useDispatch();
+  const isBeta = useBetaContext();
   const history = useHistory();
   const sourceChain = useSelector(selectTransferSourceChain);
   const parsedTokenAccount = useSelector(
@@ -92,30 +90,19 @@ function Source({
   return (
     <>
       <StepDescription>
-        <div style={{ display: "flex", alignItems: "center" }}>
-          Select tokens to send through the Wormhole Bridge.
-          <div style={{ flexGrow: 1 }} />
-          <div>
-            <Button
-              component={Link}
-              to="/token-origin-verifier"
-              size="small"
-              variant="outlined"
-              endIcon={<VerifiedUser />}
-            >
-              Token Origin Verifier
-            </Button>
-          </div>
-        </div>
+        Select tokens to send through the Wormhole Token Bridge.
       </StepDescription>
       <TextField
         select
+        variant="outlined"
         fullWidth
         value={sourceChain}
         onChange={handleSourceChange}
         disabled={shouldLockFields}
       >
-        {CHAINS.map(({ id, name }) => (
+        {CHAINS.filter(({ id }) =>
+          isBeta ? true : !BETA_CHAINS.includes(id)
+        ).map(({ id, name }) => (
           <MenuItem key={id} value={id}>
             {name}
           </MenuItem>
@@ -146,6 +133,7 @@ function Source({
           <LowBalanceWarning chainId={sourceChain} />
           {hasParsedTokenAccount ? (
             <TextField
+              variant="outlined"
               label="Amount"
               type="number"
               fullWidth

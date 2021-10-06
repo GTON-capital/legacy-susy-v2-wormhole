@@ -36,12 +36,21 @@ import { useSnackbar } from "notistack";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 import { useHistory } from "react-router";
+import { useBetaContext } from "../contexts/BetaContext";
 import { useEthereumProvider } from "../contexts/EthereumProviderContext";
-import useIsWalletReady from "../hooks/useIsWalletReady";
 import { COLORS } from "../muiTheme";
-import { setRecoveryVaa as setRecoveryNFTVaa } from "../store/nftSlice";
-import { setRecoveryVaa } from "../store/transferSlice";
 import {
+  setSignedVAAHex as setNFTSignedVAAHex,
+  setStep as setNFTStep,
+  setTargetChain as setNFTTargetChain,
+} from "../store/nftSlice";
+import {
+  setSignedVAAHex,
+  setStep,
+  setTargetChain,
+} from "../store/transferSlice";
+import {
+  BETA_CHAINS,
   CHAINS,
   CHAINS_WITH_NFT_SUPPORT,
   getBridgeAddressForChain,
@@ -58,7 +67,6 @@ import { isEVMChain } from "../utils/ethereum";
 import { getSignedVAAWithRetry } from "../utils/getSignedVAAWithRetry";
 import parseError from "../utils/parseError";
 import ButtonWithLoader from "./ButtonWithLoader";
-import ChainSelect from "./ChainSelect";
 import KeyAndBalance from "./KeyAndBalance";
 
 const useStyles = makeStyles((theme) => ({
@@ -98,9 +106,7 @@ async function evm(
     return { vaa: uint8ArrayToHex(vaaBytes), error: null };
   } catch (e) {
     console.error(e);
-    enqueueSnackbar(null, {
-      content: <Alert severity="error">{parseError(e)}</Alert>,
-    });
+    enqueueSnackbar(parseError(e), { variant: "error" });
     return { vaa: null, error: parseError(e) };
   }
 }
@@ -125,9 +131,7 @@ async function solana(tx: string, enqueueSnackbar: any, nft: boolean) {
     return { vaa: uint8ArrayToHex(vaaBytes), error: null };
   } catch (e) {
     console.error(e);
-    enqueueSnackbar(null, {
-      content: <Alert severity="error">{parseError(e)}</Alert>,
-    });
+    enqueueSnackbar(parseError(e), { variant: "error" });
     return { vaa: null, error: parseError(e) };
   }
 }
@@ -152,15 +156,14 @@ async function terra(tx: string, enqueueSnackbar: any) {
     return { vaa: uint8ArrayToHex(vaaBytes), error: null };
   } catch (e) {
     console.error(e);
-    enqueueSnackbar(null, {
-      content: <Alert severity="error">{parseError(e)}</Alert>,
-    });
+    enqueueSnackbar(parseError(e), { variant: "error" });
     return { vaa: null, error: parseError(e) };
   }
 }
 
 export default function Recovery() {
   const classes = useStyles();
+  const isBeta = useBetaContext();
   const { push } = useHistory();
   const { enqueueSnackbar } = useSnackbar();
   const dispatch = useDispatch();
@@ -175,9 +178,6 @@ export default function Recovery() {
   const [recoverySourceTxError, setRecoverySourceTxError] = useState("");
   const [recoverySignedVAA, setRecoverySignedVAA] = useState("");
   const [recoveryParsedVAA, setRecoveryParsedVAA] = useState<any>(null);
-  const { isReady, statusMessage } = useIsWalletReady(recoverySourceChain);
-  const walletConnectError =
-    isEVMChain(recoverySourceChain) && !isReady ? statusMessage : "";
   const parsedPayload = useMemo(() => {
     try {
       return recoveryParsedVAA?.payload
@@ -195,7 +195,7 @@ export default function Recovery() {
     }
   }, [recoveryParsedVAA, isNFT]);
   useEffect(() => {
-    if (recoverySourceTx && (!isEVMChain(recoverySourceChain) || isReady)) {
+    if (recoverySourceTx) {
       let cancelled = false;
       if (isEVMChain(recoverySourceChain) && provider) {
         setRecoverySourceTxError("");
@@ -257,14 +257,7 @@ export default function Recovery() {
         cancelled = true;
       };
     }
-  }, [
-    recoverySourceChain,
-    recoverySourceTx,
-    provider,
-    enqueueSnackbar,
-    isNFT,
-    isReady,
-  ]);
+  }, [recoverySourceChain, recoverySourceTx, provider, enqueueSnackbar, isNFT]);
   const handleTypeChange = useCallback((event) => {
     setRecoverySourceChain((prevChain) =>
       event.target.value === "NFT" &&
@@ -314,30 +307,14 @@ export default function Recovery() {
     if (enableRecovery && recoverySignedVAA && parsedPayloadTargetChain) {
       // TODO: make recovery reducer
       if (isNFT) {
-        dispatch(
-          setRecoveryNFTVaa({
-            vaa: recoverySignedVAA,
-            parsedPayload: {
-              targetChain: parsedPayload.targetChain,
-              targetAddress: parsedPayload.targetAddress,
-              originChain: parsedPayload.originChain,
-              originAddress: parsedPayload.originAddress,
-            },
-          })
-        );
+        dispatch(setNFTSignedVAAHex(recoverySignedVAA));
+        dispatch(setNFTTargetChain(parsedPayloadTargetChain));
+        dispatch(setNFTStep(3));
         push("/nft");
       } else {
-        dispatch(
-          setRecoveryVaa({
-            vaa: recoverySignedVAA,
-            parsedPayload: {
-              targetChain: parsedPayload.targetChain,
-              targetAddress: parsedPayload.targetAddress,
-              originChain: parsedPayload.originChain,
-              originAddress: parsedPayload.originAddress,
-            },
-          })
-        );
+        dispatch(setSignedVAAHex(recoverySignedVAA));
+        dispatch(setTargetChain(parsedPayloadTargetChain));
+        dispatch(setStep(3));
         push("/transfer");
       }
     }
@@ -346,14 +323,13 @@ export default function Recovery() {
     enableRecovery,
     recoverySignedVAA,
     parsedPayloadTargetChain,
-    parsedPayload,
     isNFT,
     push,
   ]);
   return (
     <Container maxWidth="md">
       <Card className={classes.mainCard}>
-        <Alert severity="info" variant="outlined">
+        <Alert severity="info">
           If you have sent your tokens but have not redeemed them, you may paste
           in the Source Transaction ID (from Step 3) to resume your transfer.
         </Alert>
@@ -370,7 +346,7 @@ export default function Recovery() {
           <MenuItem value="Token">Token</MenuItem>
           <MenuItem value="NFT">NFT</MenuItem>
         </TextField>
-        <ChainSelect
+        <TextField
           select
           variant="outlined"
           label="Source Chain"
@@ -379,23 +355,26 @@ export default function Recovery() {
           onChange={handleSourceChainChange}
           fullWidth
           margin="normal"
-          chains={isNFT ? CHAINS_WITH_NFT_SUPPORT : CHAINS}
-        />
+        >
+          {(isNFT ? CHAINS_WITH_NFT_SUPPORT : CHAINS)
+            .filter(({ id }) => (isBeta ? true : !BETA_CHAINS.includes(id)))
+            .map(({ id, name }) => (
+              <MenuItem key={id} value={id}>
+                {name}
+              </MenuItem>
+            ))}
+        </TextField>
         {isEVMChain(recoverySourceChain) ? (
           <KeyAndBalance chainId={recoverySourceChain} />
         ) : null}
         <TextField
           variant="outlined"
           label="Source Tx (paste here)"
-          disabled={
-            !!recoverySignedVAA ||
-            recoverySourceTxIsLoading ||
-            !!walletConnectError
-          }
+          disabled={!!recoverySignedVAA || recoverySourceTxIsLoading}
           value={recoverySourceTx}
           onChange={handleSourceTxChange}
-          error={!!recoverySourceTxError || !!walletConnectError}
-          helperText={recoverySourceTxError || walletConnectError}
+          error={!!recoverySourceTxError}
+          helperText={recoverySourceTxError}
           fullWidth
           margin="normal"
         />
@@ -526,6 +505,14 @@ export default function Recovery() {
                     margin="normal"
                   />
                 ) : null}
+                <TextField
+                  variant="outlined"
+                  label="Target Chain"
+                  disabled
+                  value={parsedPayload?.targetChain.toString() || ""}
+                  fullWidth
+                  margin="normal"
+                />
                 <TextField
                   variant="outlined"
                   label="Target Chain"

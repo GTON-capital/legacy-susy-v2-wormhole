@@ -1,5 +1,4 @@
 import {
-  Button,
   Card,
   Container,
   Link,
@@ -30,7 +29,7 @@ const useStyles = makeStyles((theme) => ({
     WebkitTextFillColor: "transparent",
     MozBackgroundClip: "text",
     MozTextFillColor: "transparent",
-    filter: `drop-shadow( 0px 0px 8px ${COLORS.nearBlack}) drop-shadow( 0px 0px 14px ${COLORS.nearBlack}) drop-shadow( 0px 0px 24px ${COLORS.nearBlack})`,
+    // filter: `drop-shadow( 0px 0px 8px ${COLORS.nearBlack}) drop-shadow( 0px 0px 14px ${COLORS.nearBlack}) drop-shadow( 0px 0px 24px ${COLORS.nearBlack})`,
   },
   description: {
     marginBottom: theme.spacing(2),
@@ -46,8 +45,7 @@ const useStyles = makeStyles((theme) => ({
     maxWidth: "100%",
   },
   mainCard: {
-    padding: theme.spacing(1),
-    borderRadius: "5px",
+    padding: theme.spacing(8),
     backgroundColor: COLORS.nearBlackWithMinorTransparency,
   },
   spacer: {
@@ -60,33 +58,13 @@ function Home() {
   return (
     <div>
       <Container maxWidth="md">
-        <div className={classes.header}>
-          <HeaderText>The Portal is Open</HeaderText>
+        <div className={classes.centeredContainer}>
+          <Typography variant="h1" className={classes.header}>
+            <span className={classes.linearGradient}>The Portal is Open</span>
+          </Typography>
         </div>
       </Container>
       <Container maxWidth="md">
-        <div className={classes.chainList}>
-          {CHAINS.filter(({ id }) => !BETA_CHAINS.includes(id)).map((chain) => (
-            <div key={chain.id} className={classes.chainCard}>
-              <div className={classes.chainLogoWrapper}>
-                <img
-                  src={chain.logo}
-                  alt={chain.name}
-                  className={classes.chainLogo}
-                />
-              </div>
-              <Typography
-                variant="body2"
-                component="div"
-                className={classes.chainName}
-              >
-                <div>{chain.name}</div>
-              </Typography>
-            </div>
-          ))}
-        </div>
-      </Container>
-      <Container maxWidth="sm">
         <Card className={classes.mainCard}>
           <Typography variant="h4" className={classes.description}>
             Wormhole v2 is here!
@@ -95,26 +73,11 @@ function Home() {
             The Wormhole Token Bridge allows you to seamlessly transfer
             tokenized assets across Solana, Ethereum, BSC, Terra, and Polygon.
           </Typography>
-          <Button
-            component={RouterLink}
-            to="/transfer"
-            variant="contained"
-            color="secondary"
-            size="large"
-            className={classes.button}
-          >
-            Transfer Tokens
-          </Button>
           <div className={classes.spacer} />
           <Typography variant="subtitle1" className={classes.description}>
             If you transferred assets using the previous version of Wormhole,
             most assets can be migrated to v2 on the{" "}
-            <Link
-              component={RouterLink}
-              to="/transfer"
-              color="secondary"
-              noWrap
-            >
+            <Link component={RouterLink} to="/transfer" noWrap>
               transfer page
             </Link>
             .
@@ -122,22 +85,17 @@ function Home() {
           <Typography variant="subtitle1" className={classes.description}>
             For assets that don't support the migration, the v1 UI can be found
             at{" "}
-            <Link href="https://v1.wormholebridge.com" color="secondary">
+            <Link href="https://v1.wormholebridge.com">
               v1.wormholebridge.com
             </Link>
           </Typography>
           <Typography variant="subtitle1" className={classes.description}>
             To learn more about the Wormhole Protocol that powers it, visit{" "}
-            <Link href="https://wormholenetwork.com/en/" color="secondary">
+            <Link href="https://wormholenetwork.com/en/">
               wormholenetwork.com
             </Link>
           </Typography>
         </Card>
-      </Container>
-      <Container maxWidth="md">
-        <div className={classes.centeredContainer}>
-          <img src={overview} alt="overview" className={classes.overview} />
-        </div>
       </Container>
     </div>
   );
