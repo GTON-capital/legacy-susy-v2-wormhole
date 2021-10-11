@@ -4,6 +4,8 @@ const Setup = artifacts.require("Setup");
 const Implementation = artifacts.require("Implementation");
 const Wormhole = artifacts.require("Wormhole");
 
+const buildDeployerProps = require('../scripts/override')
+
 // CONFIG
 const initialSigners = JSON.parse(process.env.INIT_SIGNERS);
 const chainId = process.env.INIT_CHAIN_ID;
@@ -12,10 +14,10 @@ const governanceContract = process.env.INIT_GOV_CONTRACT; // bytes32
 
 module.exports = async function (deployer) {
     // deploy setup
-    await deployer.deploy(Setup);
+    await deployer.deploy(Setup, buildDeployerProps(deployer));
 
     // deploy implementation
-    await deployer.deploy(Implementation);
+    await deployer.deploy(Implementation, buildDeployerProps(deployer));
 
     // encode initialisation data
     const setup = new web3.eth.Contract(Setup.abi, Setup.address);
@@ -28,5 +30,5 @@ module.exports = async function (deployer) {
     ).encodeABI();
 
     // deploy proxy
-    await deployer.deploy(Wormhole, Setup.address, initData);
+    await deployer.deploy(Wormhole, Setup.address, initData, buildDeployerProps(deployer));
 };

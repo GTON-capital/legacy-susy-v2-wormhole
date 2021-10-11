@@ -41,9 +41,19 @@ module.exports = {
             gas: 4465030,
             gasPrice: 10000000000,
         },
+        polygon: {
+            provider: () => {
+                return new HDWalletProvider(process.env.MNEMONIC, 'https://apis.ankr.com/6052791850e6426392593b0ddba45bf5/d37735e535d9d051230799cae45aeb6a/polygon/full/main')
+            },
+            network_id: 137,
+            gasPrice: 115,
+            confirmations: 1,
+            timeoutBlocks: 200,
+            skipDryRun: false
+        },
         binance: {
             provider: () => {
-                return new HDWalletProvider(process.env.MNEMONIC, 'https://bsc-dataseed.binance.org/')
+                return new HDWalletProvider(process.env.MNEMONIC, 'https://apis.ankr.com/6017ce5a3b86463c8b15279cc25d74b3/d37735e535d9d051230799cae45aeb6a/binance/full/main')
             },
             network_id: '56',
             gas: 70000000,
