@@ -20,7 +20,7 @@ import { useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useEthereumProvider } from "../contexts/EthereumProviderContext";
 import { useSolanaWallet } from "../contexts/SolanaWalletContext";
-import useTransferSignedVAA from "../hooks/useTransferSignedVAA";
+import useTransferSignedVAA from "./useTransferSignedVAA";
 import {
   selectTransferIsRedeeming,
   selectTransferTargetChain,
@@ -36,6 +36,7 @@ import {
 import { isEVMChain } from "../utils/ethereum";
 import parseError from "../utils/parseError";
 import { signSendAndConfirm } from "../utils/solana";
+import { Alert } from "@material-ui/lab";
 
 async function evm(
   dispatch: any,
@@ -61,9 +62,13 @@ async function evm(
     dispatch(
       setRedeemTx({ id: receipt.transactionHash, block: receipt.blockNumber })
     );
-    enqueueSnackbar("Transaction confirmed", { variant: "success" });
+    enqueueSnackbar(null, {
+      content: <Alert severity="success">Transaction confirmed</Alert>,
+    });
   } catch (e) {
-    enqueueSnackbar(parseError(e), { variant: "error" });
+    enqueueSnackbar(null, {
+      content: <Alert severity="error">{parseError(e)}</Alert>,
+    });
     dispatch(setIsRedeeming(false));
   }
 }
@@ -99,9 +104,13 @@ async function solana(
     const txid = await signSendAndConfirm(wallet, connection, transaction);
     // TODO: didn't want to make an info call we didn't need, can we get the block without it by modifying the above call?
     dispatch(setRedeemTx({ id: txid, block: 1 }));
-    enqueueSnackbar("Transaction confirmed", { variant: "success" });
+    enqueueSnackbar(null, {
+      content: <Alert severity="success">Transaction confirmed</Alert>,
+    });
   } catch (e) {
-    enqueueSnackbar(parseError(e), { variant: "error" });
+    enqueueSnackbar(null, {
+      content: <Alert severity="error">{parseError(e)}</Alert>,
+    });
     dispatch(setIsRedeeming(false));
   }
 }
@@ -126,9 +135,13 @@ async function terra(
     dispatch(
       setRedeemTx({ id: result.result.txhash, block: result.result.height })
     );
-    enqueueSnackbar("Transaction confirmed", { variant: "success" });
+    enqueueSnackbar(null, {
+      content: <Alert severity="success">Transaction confirmed</Alert>,
+    });
   } catch (e) {
-    enqueueSnackbar(parseError(e), { variant: "error" });
+    enqueueSnackbar(null, {
+      content: <Alert severity="error">{parseError(e)}</Alert>,
+    });
     dispatch(setIsRedeeming(false));
   }
 }
@@ -162,9 +175,6 @@ export function useHandleRedeem() {
     } else if (targetChain === CHAIN_ID_TERRA && !!terraWallet && signedVAA) {
       terra(dispatch, enqueueSnackbar, terraWallet, signedVAA);
     } else {
-      // enqueueSnackbar("Redeeming on this chain is not yet supported", {
-      //   variant: "error",
-      // });
     }
   }, [
     dispatch,
@@ -196,9 +206,6 @@ export function useHandleRedeem() {
     } else if (targetChain === CHAIN_ID_TERRA && !!terraWallet && signedVAA) {
       terra(dispatch, enqueueSnackbar, terraWallet, signedVAA); //TODO isNative = true
     } else {
-      // enqueueSnackbar("Redeeming on this chain is not yet supported", {
-      //   variant: "error",
-      // });
     }
   }, [
     dispatch,

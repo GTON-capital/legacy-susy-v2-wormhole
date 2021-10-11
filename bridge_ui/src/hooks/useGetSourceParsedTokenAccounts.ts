@@ -160,6 +160,32 @@ const createParsedTokenAccountFromCovalent = (
   };
 };
 
+const createNativeSolParsedTokenAccount = async (
+  connection: Connection,
+  walletAddress: string
+) => {
+  // const walletAddress = "H69q3Q8E74xm7swmMQpsJLVp2Q9JuBwBbxraAMX5Drzm" // known solana mainnet wallet with tokens
+  const fetchAccounts = await getMultipleAccountsRPC(connection, [
+    new PublicKey(walletAddress),
+  ]);
+  if (!fetchAccounts || !fetchAccounts.length || !fetchAccounts[0]) {
+    return null;
+  } else {
+    return createParsedTokenAccount(
+      walletAddress, //publicKey
+      WSOL_ADDRESS, //Mint key
+      fetchAccounts[0].lamports.toString(), //amount
+      WSOL_DECIMALS, //decimals, 9
+      parseFloat(formatUnits(fetchAccounts[0].lamports, WSOL_DECIMALS)),
+      formatUnits(fetchAccounts[0].lamports, WSOL_DECIMALS).toString(),
+      "SOL",
+      "Solana",
+      undefined, //TODO logo. It's in the solana token map, so we could potentially use that URL.
+      true
+    );
+  }
+};
+
 const createNativeEthParsedTokenAccount = (
   provider: Provider,
   signerAddress: string | undefined
