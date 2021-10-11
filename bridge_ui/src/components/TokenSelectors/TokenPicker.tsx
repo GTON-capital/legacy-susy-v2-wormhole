@@ -95,7 +95,7 @@ const useStyles = makeStyles((theme) =>
   })
 );
 
-export const balancePretty = (uiString: string) => {
+const balancePretty = (uiString: string) => {
   const numberString = uiString.split(".")[0];
   const bignum = BigNumber.from(numberString);
   if (bignum.gte(1000000)) {
@@ -131,7 +131,7 @@ export const BasicAccountRender = (
       </div>
       <div>
         <Typography>{mintPrettyString}</Typography>
-        <Typography style={{ wordBreak: "break-all" }}>{tokenId}</Typography>
+        <Typography>{tokenId}</Typography>
       </div>
     </div>
   );
@@ -282,15 +282,12 @@ export default function TokenPicker({
     if (useTokenId && !tokenIdHolderString) {
       return;
     }
-    setLoadingError("");
     let cancelled = false;
     if (isValidAddress(holderString)) {
       const option = localFind(holderString, tokenIdHolderString);
       if (option) {
         handleSelectOption(option);
-        return () => {
-          cancelled = true;
-        };
+        return;
       }
       setLocalLoading(true);
       setLoadingError("");
@@ -314,7 +311,6 @@ export default function TokenPicker({
         }
       );
     }
-    return () => (cancelled = true);
   }, [
     holderString,
     isValidAddress,
@@ -340,6 +336,7 @@ export default function TokenPicker({
 
   const displayLocalError = (
     <div className={classes.alignCenter}>
+      <CircularProgress />
       <Typography variant="body2" color="error">
         {loadingError || selectionError}
       </Typography>
