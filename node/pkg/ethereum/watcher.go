@@ -3,12 +3,13 @@ package ethereum
 import (
 	"context"
 	"fmt"
-	"github.com/SuSy-One/susy-v2/node/pkg/p2p"
-	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/certusone/wormhole/node/pkg/p2p"
+	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -91,6 +92,15 @@ type (
 	pendingMessage struct {
 		message *common.MessagePublication
 		height  uint64
+	}
+
+	WatcherConfig struct {
+		Name        string `mapstructure:"name"`
+		Url         string `mapstructure:"url"`
+		Contract    string `mapstructure:"contract"`
+		NetworkName string `mapstructure:"network_name"`
+		Readiness   string `mapstructure:"readiness"`
+		ChainID     uint16 `mapstructure:"chain_id"`
 	}
 )
 
@@ -253,7 +263,7 @@ func (e *Watcher) Run(ctx context.Context) error {
 				currentEthHeight.WithLabelValues(e.networkName).Set(float64(ev.Number.Int64()))
 				readiness.SetReady(e.readiness)
 				p2p.DefaultRegistry.SetNetworkStats(e.chainID, &gossipv1.Heartbeat_Network{
-					Height:        ev.Number.Int64(),
+					Height:          ev.Number.Int64(),
 					ContractAddress: e.contract.Hex(),
 				})
 

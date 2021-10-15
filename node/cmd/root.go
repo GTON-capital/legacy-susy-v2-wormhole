@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/SuSy-One/susy-v2/node/cmd/debug"
-	"github.com/SuSy-One/susy-v2/node/cmd/spy"
-	"github.com/SuSy-One/susy-v2/node/pkg/version"
 	"os"
+
+	"github.com/certusone/wormhole/node/cmd/debug"
+	"github.com/certusone/wormhole/node/pkg/version"
 
 	"github.com/spf13/cobra"
 
@@ -68,8 +68,9 @@ func initConfig() {
 		}
 
 		// Search config in home directory with name ".guardiand" (without extension).
+		viper.SetConfigType("yaml")
 		viper.AddConfigPath(home)
-		viper.SetConfigName(".guardiand.yaml")
+		viper.SetConfigName(".guardiand")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
@@ -77,5 +78,7 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	} else {
+		fmt.Println("Error using config file:", err.Error())
 	}
 }
