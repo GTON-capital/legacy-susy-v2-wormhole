@@ -245,7 +245,8 @@ export async function transferFromSolana(
   targetAddress: Uint8Array,
   targetChain: ChainId,
   originAddress?: Uint8Array,
-  originChain?: ChainId
+  originChain?: ChainId,
+  fromOwnerAddress?: string
 ) {
   const nonce = createNonce().readUInt32LE(0);
   const fee = BigInt(0); // for now, this won't do anything, we may add later
@@ -263,7 +264,7 @@ export async function transferFromSolana(
     TOKEN_PROGRAM_ID,
     new PublicKey(fromAddress),
     new PublicKey(approval_authority_address(tokenBridgeAddress)),
-    new PublicKey(payerAddress),
+    new PublicKey(fromOwnerAddress || payerAddress),
     [],
     new u64(amount.toString(16), 16)
   );
@@ -294,7 +295,7 @@ export async function transferFromSolana(
           payerAddress,
           messageKey.publicKey.toString(),
           fromAddress,
-          payerAddress,
+          fromOwnerAddress || payerAddress,
           originChain as number, // checked by isSolanaNative
           originAddress as Uint8Array, // checked by throw
           nonce,
