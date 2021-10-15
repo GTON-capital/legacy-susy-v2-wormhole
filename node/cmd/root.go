@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/certusone/wormhole/node/cmd/debug"
+	"github.com/certusone/wormhole/node/pkg/version"
+
 	"github.com/SuSy-One/susy-v2/node/cmd/debug"
 	"github.com/SuSy-One/susy-v2/node/pkg/version"
 
