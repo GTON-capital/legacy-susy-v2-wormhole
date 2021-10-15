@@ -22,6 +22,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
@@ -230,9 +231,9 @@ func runNode(cmd *cobra.Command, args []string) {
 	ipfslog.SetAllLoggers(lvl)
 
 	// Register components for readiness checks.
-	readiness.RegisterComponent(common.ReadinessEthSyncing)
+	//readiness.RegisterComponent(common.ReadinessEthSyncing)
 	readiness.RegisterComponent(common.ReadinessSolanaSyncing)
-	readiness.RegisterComponent(common.ReadinessTerraSyncing)
+	//readiness.RegisterComponent(common.ReadinessTerraSyncing)
 
 	if *statusAddr != "" {
 		// Use a custom routing instead of using http.DefaultServeMux directly to avoid accidentally exposing packages
@@ -321,19 +322,15 @@ func runNode(cmd *cobra.Command, args []string) {
 	if *solanaRPC == "" {
 		logger.Fatal("Please specify --solanaUrl")
 	}
-
-	// if *terraWS == "" {
-	// 	logger.Fatal("Please specify --terraWS")
-	// }
-	// if *terraLCD == "" {
-	// 	logger.Fatal("Please specify --terraLCD")
-	// }
-	// if *terraChainID == "" {
-	// 	logger.Fatal("Please specify --terraChainID")
-	// }
-	// if *terraContract == "" {
-	// 	logger.Fatal("Please specify --terraContract")
-	// }
+	testParam := viper.GetString("test")
+	logger.Debug(fmt.Sprintf("Karamba %s", testParam))
+	evmWatchers := []ethereum.WatcherConfig{}
+	err = viper.UnmarshalKey("evm_watchers", &evmWatchers)
+	if err != nil {
+		logger.Sugar().Fatalf("Config error %v", err)
+	}
+	// cw := viper.GetStringMap("evm_watchers")
+	// mapstructure.Decode(cw, &evmWatchers)
 
 	if *bigTablePersistenceEnabled {
 		if *bigTableGCPProject == "" {
@@ -350,8 +347,8 @@ func runNode(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	ethContractAddr := eth_common.HexToAddress(*ethContract)
-	//bscContractAddr := eth_common.HexToAddress(*bscContract)
+	// ethContractAddr := eth_common.HexToAddress(*ethContract)
+	// bscContractAddr := eth_common.HexToAddress(*bscContract)
 	solAddress, err := solana_types.PublicKeyFromBase58(*solanaContract)
 	if err != nil {
 		logger.Fatal("invalid Solana contract address", zap.Error(err))
@@ -461,15 +458,16 @@ func runNode(cmd *cobra.Command, args []string) {
 			return err
 		}
 
-		if err := supervisor.Run(ctx, "ethwatch",
-			ethereum.NewEthWatcher(*ethRPC, ethContractAddr, "eth", common.ReadinessEthSyncing, vaa.ChainIDEthereum, lockC, setC).Run); err != nil {
-			return err
+		for _, watcher := range evmWatchers {
+			watcherAddr := eth_common.HexToAddress(watcher.Contract)
+			watcherReadiness := readiness.Component(watcher.Readiness)
+			readiness.RegisterComponent(watcherReadiness)
+			if err := supervisor.Run(ctx, watcher.Name,
+				ethereum.NewEthWatcher(watcher.Url, watcherAddr, watcher.NetworkName, watcherReadiness, vaa.ChainID(watcher.ChainID), lockC, setC).Run); err != nil {
+				return err
+			}
+			vaa.ChainIdNameMatch[vaa.ChainID(watcher.ChainID)] = watcher.NetworkName
 		}
-
-		// if err := supervisor.Run(ctx, "bscwatch",
-		// 	ethereum.NewEthWatcher(*bscRPC, bscContractAddr, "bsc", common.ReadinessBSCSyncing, vaa.ChainIDBSC, lockC, nil).Run); err != nil {
-		// 	return err
-		// }
 
 		// Start Terra watcher only if configured
 		// logger.Info("Starting Terra watcher")
