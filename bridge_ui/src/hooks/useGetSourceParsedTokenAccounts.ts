@@ -344,18 +344,30 @@ const getSolanaParsedTokenAccounts = (
         const mappedItems = result.value.map((item) =>
           createParsedTokenAccountFromInfo(item.pubkey, item.account)
         );
-        dispatch(
-          nft
-            ? receiveSourceParsedTokenAccountsNFT(mappedItems)
-            : receiveSourceParsedTokenAccounts(mappedItems)
-        );
-      },
-      (error) => {
-        dispatch(
-          nft
-            ? errorSourceParsedTokenAccountsNFT("Failed to load NFT metadata")
-            : errorSourceParsedTokenAccounts("Failed to load token metadata.")
-        );
+      });
+
+    // uncomment to test token account in picker, useful for debugging
+    // splParsedTokenAccounts.push({
+    //   amount: "1",
+    //   decimals: 8,
+    //   mintKey: "2Xf2yAXJfg82sWwdLUo2x9mZXy6JCdszdMZkcF1Hf4KV",
+    //   publicKey: "2Xf2yAXJfg82sWwdLUo2x9mZXy6JCdszdMZkcF1Hf4KV",
+    //   uiAmount: 1,
+    //   uiAmountString: "1",
+    //   isNativeAsset: false,
+    // });
+
+    if (nft) {
+      //In the case of NFTs, we are done, and we set the accounts in redux
+      dispatch(receiveSourceParsedTokenAccountsNFT(splParsedTokenAccounts));
+    } else {
+      //In the transfer case, we also pull the SOL balance of the wallet, and prepend it at the beginning of the list.
+      const nativeAccount = await createNativeSolParsedTokenAccount(
+        connection,
+        walletAddress
+      );
+      if (nativeAccount !== null) {
+        splParsedTokenAccounts.unshift(nativeAccount);
       }
     );
 };
