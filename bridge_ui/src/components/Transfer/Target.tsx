@@ -48,12 +48,17 @@ export const useTargetInfo = () => {
   const targetChain = useSelector(selectTransferTargetChain);
   const targetAddressHex = useSelector(selectTransferTargetAddressHex);
   const targetAsset = useSelector(selectTransferTargetAsset);
-  const targetParsedTokenAccount = useSelector(
-    selectTransferTargetParsedTokenAccount
+  const targetAssetArrayed = useMemo(
+    () => (targetAsset ? [targetAsset] : []),
+    [targetAsset]
   );
-  const tokenName = targetParsedTokenAccount?.name;
-  const symbol = targetParsedTokenAccount?.symbol;
-  const logo = targetParsedTokenAccount?.logo;
+  const metadata = useMetadata(targetChain, targetAssetArrayed);
+  const tokenName =
+    (targetAsset && metadata.data?.get(targetAsset)?.tokenName) || undefined;
+  const symbol =
+    (targetAsset && metadata.data?.get(targetAsset)?.symbol) || undefined;
+  const logo =
+    (targetAsset && metadata.data?.get(targetAsset)?.logo) || undefined;
   const readableTargetAddress =
     hexToNativeString(targetAddressHex, targetChain) || "";
   return useMemo(
@@ -70,7 +75,6 @@ export const useTargetInfo = () => {
 };
 
 function Target() {
-  useGetTargetParsedTokenAccounts();
   const classes = useStyles();
   const dispatch = useDispatch();
   const isBeta = useBetaContext();
@@ -79,22 +83,14 @@ function Target() {
     () => CHAINS.filter((c) => c.id !== sourceChain),
     [sourceChain]
   );
-  const targetChain = useSelector(selectTransferTargetChain);
-  const targetAddressHex = useSelector(selectTransferTargetAddressHex);
-  const targetAsset = useSelector(selectTransferTargetAsset);
-  const targetAssetArrayed = useMemo(
-    () => (targetAsset ? [targetAsset] : []),
-    [targetAsset]
-  );
-  const metadata = useMetadata(targetChain, targetAssetArrayed);
-  const tokenName =
-    (targetAsset && metadata.data?.get(targetAsset)?.tokenName) || undefined;
-  const symbol =
-    (targetAsset && metadata.data?.get(targetAsset)?.symbol) || undefined;
-  const logo =
-    (targetAsset && metadata.data?.get(targetAsset)?.logo) || undefined;
-  const readableTargetAddress =
-    hexToNativeString(targetAddressHex, targetChain) || "";
+  const {
+    targetChain,
+    targetAsset,
+    tokenName,
+    symbol,
+    logo,
+    readableTargetAddress,
+  } = useTargetInfo();
   const uiAmountString = useSelector(selectTransferTargetBalanceString);
   const transferAmount = useSelector(selectTransferAmount);
   const error = useSelector(selectTransferTargetError);

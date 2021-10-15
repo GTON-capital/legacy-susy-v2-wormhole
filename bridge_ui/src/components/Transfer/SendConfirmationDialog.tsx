@@ -1,4 +1,3 @@
-import { isEVMChain } from "@certusone/wormhole-sdk";
 import {
   Button,
   Dialog,
@@ -8,141 +7,62 @@ import {
   Typography,
 } from "@material-ui/core";
 import { ArrowDownward } from "@material-ui/icons";
-import { useEffect, useMemo, useState } from "react";
+import { Alert } from "@material-ui/lab";
 import { useSelector } from "react-redux";
 import {
-  selectTransferOriginChain,
   selectTransferSourceChain,
   selectTransferSourceParsedTokenAccount,
 } from "../../store/selectors";
-import { CHAINS_BY_ID, MULTI_CHAIN_TOKENS } from "../../utils/consts";
+import { CHAINS_BY_ID } from "../../utils/consts";
 import SmartAddress from "../SmartAddress";
 import { useTargetInfo } from "./Target";
-import TokenWarning from "./TokenWarning";
 
-function SendConfirmationContent({
-  open,
-  onClose,
-  onClick,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onClick: () => void;
-}) {
+function SendConfirmationContent() {
   const sourceChain = useSelector(selectTransferSourceChain);
   const sourceParsedTokenAccount = useSelector(
     selectTransferSourceParsedTokenAccount
   );
   const { targetChain, targetAsset, symbol, tokenName, logo } = useTargetInfo();
-  const originChain = useSelector(selectTransferOriginChain);
-
-  //TODO this check is essentially duplicated.
-  const deservesTimeout = useMemo(() => {
-    if (originChain && sourceParsedTokenAccount?.mintKey) {
-      const searchableAddress = isEVMChain(originChain)
-        ? sourceParsedTokenAccount.mintKey.toLowerCase()
-        : sourceParsedTokenAccount.mintKey;
-      return (
-        originChain !== targetChain &&
-        !!MULTI_CHAIN_TOKENS[sourceChain]?.[searchableAddress]
-      );
-    } else {
-      return false;
-    }
-  }, [originChain, targetChain, sourceChain, sourceParsedTokenAccount]);
-  const timeoutDuration = 5;
-
-  const [countdown, setCountdown] = useState(
-    deservesTimeout ? timeoutDuration : 0
-  );
-
-  useEffect(() => {
-    if (!deservesTimeout || countdown === 0) {
-      return;
-    }
-    let cancelled = false;
-
-    setInterval(() => {
-      if (!cancelled) {
-        setCountdown((state) => state - 1);
-      }
-    }, 1000);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [deservesTimeout, countdown]);
-
-  useEffect(() => {
-    if (open && deservesTimeout) {
-      //Countdown starts on mount, but we actually want it to start on open
-      setCountdown(timeoutDuration);
-    }
-  }, [open, deservesTimeout]);
-
-  const sendConfirmationContent = (
+  return (
     <>
-      <DialogTitle>Are you sure?</DialogTitle>
-      <DialogContent>
-        {targetAsset ? (
-          <div style={{ textAlign: "center", marginBottom: 16 }}>
-            <Typography variant="subtitle1" style={{ marginBottom: 8 }}>
-              You are about to perform this transfer:
+      {targetAsset ? (
+        <div style={{ textAlign: "center" }}>
+          <SmartAddress
+            variant="h6"
+            chainId={sourceChain}
+            parsedTokenAccount={sourceParsedTokenAccount}
+          />
+          <div>
+            <Typography variant="caption">
+              {CHAINS_BY_ID[sourceChain].name}
             </Typography>
-            <SmartAddress
-              variant="h6"
-              chainId={sourceChain}
-              parsedTokenAccount={sourceParsedTokenAccount}
-            />
-            <div>
-              <Typography variant="caption">
-                {CHAINS_BY_ID[sourceChain].name}
-              </Typography>
-            </div>
-            <div style={{ paddingTop: 4 }}>
-              <ArrowDownward fontSize="inherit" />
-            </div>
-            <SmartAddress
-              variant="h6"
-              chainId={targetChain}
-              address={targetAsset}
-              symbol={symbol}
-              tokenName={tokenName}
-              logo={logo}
-            />
-            <div>
-              <Typography variant="caption">
-                {CHAINS_BY_ID[targetChain].name}
-              </Typography>
-            </div>
           </div>
-        ) : null}
-        <TokenWarning
-          sourceAsset={sourceParsedTokenAccount?.mintKey}
-          sourceChain={sourceChain}
-          originChain={originChain}
-          targetAsset={targetAsset ?? undefined}
-          targetChain={targetChain}
-        />
-      </DialogContent>
-      <DialogActions>
-        <Button variant="outlined" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={onClick}
-          size={"medium"}
-          disabled={!!countdown}
-        >
-          {!!countdown ? countdown.toString() : "Confirm"}
-        </Button>
-      </DialogActions>
+          <div style={{ paddingTop: 4 }}>
+            <ArrowDownward fontSize="inherit" />
+          </div>
+          <SmartAddress
+            variant="h6"
+            chainId={targetChain}
+            address={targetAsset}
+            symbol={symbol}
+            tokenName={tokenName}
+            logo={logo}
+          />
+          <div>
+            <Typography variant="caption">
+              {CHAINS_BY_ID[targetChain].name}
+            </Typography>
+          </div>
+        </div>
+      ) : null}
+      <Alert severity="warning" variant="outlined" style={{ marginTop: 8 }}>
+        Once the transfer transaction is submitted, the transfer must be
+        completed by redeeming the tokens on the target chain. Please ensure
+        that the token listed above is the desired token and confirm that
+        markets exist on the target chain.
+      </Alert>
     </>
   );
-
-  return sendConfirmationContent;
 }
 
 export default function SendConfirmationDialog({
@@ -156,11 +76,18 @@ export default function SendConfirmationDialog({
 }) {
   return (
     <Dialog open={open} onClose={onClose}>
-      <SendConfirmationContent
-        open={open}
-        onClose={onClose}
-        onClick={onClick}
-      />
+      <DialogTitle>Are you sure?</DialogTitle>
+      <DialogContent>
+        <SendConfirmationContent />
+      </DialogContent>
+      <DialogActions>
+        <Button variant="outlined" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button variant="contained" color="primary" onClick={onClick}>
+          Confirm
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 }
