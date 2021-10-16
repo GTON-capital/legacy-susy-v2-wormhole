@@ -25,22 +25,13 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-export default function HeaderText({
-  children,
-  white,
-  small,
-}: {
-  children: ReactChild;
-  white?: boolean;
-  small?: boolean;
-}) {
+export default function HeaderText({ children }: { children: ReactChild }) {
   const classes = useStyles();
   return (
     <div className={classes.centeredContainer}>
       <Typography
-        variant={small ? "h2" : "h1"}
-        component="h1"
-        className={clsx(classes.header, { [classes.linearGradient]: !white })}
+        variant="h1"
+        className={clsx(classes.header, classes.linearGradient)}
       >
         {children}
       </Typography>
