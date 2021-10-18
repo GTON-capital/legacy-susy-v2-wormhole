@@ -98,6 +98,8 @@ func (c ChainID) String() string {
 		return "terra"
 	case ChainIDBSC:
 		return "bsc"
+	case ChainIDPolygon:
+		return "polygon"
 	default:
 		return ChainIDUnset, fmt.Errorf("unknown chain ID: %s", s)
 	}
@@ -113,6 +115,8 @@ const (
 	ChainIDTerra ChainID = 3
 	// ChainIDBSC is the ChainID of Binance Smart Chain
 	ChainIDBSC ChainID = 4
+	// ChainIDPolygon is the ChainID of Polygon
+	ChainIDPolygon ChainID = 5
 
 	minVAALength        = 1 + 4 + 52 + 4 + 1 + 1
 	SupportedVAAVersion = 0x01

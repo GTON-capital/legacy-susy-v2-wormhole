@@ -65,6 +65,9 @@ var (
 	bscRPC      *string
 	bscContract *string
 
+	polygonRPC      *string
+	polygonContract *string
+
 	terraWS       *string
 	terraLCD      *string
 	terraContract *string
@@ -117,6 +120,9 @@ func init() {
 
 	bscRPC = NodeCmd.Flags().String("bscRPC", "", "Binance Smart Chain RPC URL")
 	bscContract = NodeCmd.Flags().String("bscContract", "", "Binance Smart Chain contract address")
+
+	polygonRPC = NodeCmd.Flags().String("polygonRPC", "", "Polygon RPC URL")
+	polygonContract = NodeCmd.Flags().String("polygonContract", "", "Polygon contract address")
 
 	terraWS = NodeCmd.Flags().String("terraWS", "", "Path to terrad root for websocket connection")
 	terraLCD = NodeCmd.Flags().String("terraLCD", "", "Path to LCD service root for http calls")
@@ -281,6 +287,7 @@ func runNode(cmd *cobra.Command, args []string) {
 		// Deterministic ganache ETH devnet address.
 		*ethContract = devnet.GanacheWormholeContractAddress.Hex()
 		*bscContract = devnet.GanacheWormholeContractAddress.Hex()
+		*polygonContract = devnet.GanacheWormholeContractAddress.Hex()
 
 		// Use the hostname as nodeName. For production, we don't want to do this to
 		// prevent accidentally leaking sensitive hostnames.
@@ -305,18 +312,24 @@ func runNode(cmd *cobra.Command, args []string) {
 	if *dataDir == "" {
 		logger.Fatal("Please specify --dataDir")
 	}
-	// 	if *ethRPC == "" {
-	// 		logger.Fatal("Please specify --ethRPC")
-	// 	}
-	// 	if *ethContract == "" {
-	// 		logger.Fatal("Please specify --ethContract")
-	// 	}
-	// if *bscRPC == "" {
-	// 	logger.Fatal("Please specify --bscRPC")
-	// }
-	// if *bscContract == "" {
-	// 	logger.Fatal("Please specify --bscContract")
-	// }
+	if *ethRPC == "" {
+		logger.Fatal("Please specify --ethRPC")
+	}
+	if *ethContract == "" {
+		logger.Fatal("Please specify --ethContract")
+	}
+	if *bscRPC == "" {
+		logger.Fatal("Please specify --bscRPC")
+	}
+	if *bscContract == "" {
+		logger.Fatal("Please specify --bscContract")
+	}
+	if *polygonRPC == "" {
+		logger.Fatal("Please specify --polygonRPC")
+	}
+	if *polygonContract == "" {
+		logger.Fatal("Please specify --polygonContract")
+	}
 	if *nodeName == "" {
 		logger.Fatal("Please specify --nodeName")
 	}
@@ -376,12 +389,14 @@ func runNode(cmd *cobra.Command, args []string) {
 	//
 	// Insert "I'm a sign, not a cop" meme.
 	//
-	if strings.HasSuffix(*ethRPC, "mainnet.infura.io") {
+	if strings.HasSuffix(*ethRPC, "mainnet.infura.io") ||
+		strings.HasSuffix(*polygonRPC, "polygon-mainnet.infura.io") {
 		logger.Fatal("Infura is known to send incorrect blocks - please use your own nodes")
 	}
 
 	ethContractAddr := eth_common.HexToAddress(*ethContract)
 	bscContractAddr := eth_common.HexToAddress(*bscContract)
+	polygonContractAddr := eth_common.HexToAddress(*polygonContract)
 	solAddress, err := solana_types.PublicKeyFromBase58(*solanaContract)
 	if err != nil {
 		logger.Fatal("invalid Solana contract address", zap.Error(err))
@@ -508,6 +523,11 @@ func runNode(cmd *cobra.Command, args []string) {
 				return err
 			}
 			vaa.ChainIdNameMatch[vaa.ChainID(watcher.ChainID)] = watcher.NetworkName
+		}
+
+		if err := supervisor.Run(ctx, "polygonwatch",
+			ethereum.NewEthWatcher(*polygonRPC, polygonContractAddr, "polygon", common.ReadinessPolygonSyncing, vaa.ChainIDPolygon, lockC, nil).Run); err != nil {
+			return err
 		}
 
 		// Start Terra watcher only if configured
