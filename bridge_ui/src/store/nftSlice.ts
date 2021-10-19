@@ -49,6 +49,7 @@ export interface NFTState {
   isSending: boolean;
   isRedeeming: boolean;
   redeemTx: Transaction | undefined;
+  isRecovery: boolean;
 }
 
 const initialState: NFTState = {
@@ -69,6 +70,7 @@ const initialState: NFTState = {
   isSending: false,
   isRedeeming: false,
   redeemTx: undefined,
+  isRecovery: false,
 };
 
 export const nftSlice = createSlice({
@@ -214,20 +216,11 @@ export const nftSlice = createSlice({
         };
       }>
     ) => {
-      const prevTargetChain = state.targetChain;
       state.signedVAAHex = action.payload.vaa;
       state.targetChain = action.payload.parsedPayload.targetChain;
-      if (state.sourceChain === action.payload.parsedPayload.targetChain) {
-        state.sourceChain = prevTargetChain;
-      }
-      state.sourceParsedTokenAccount = undefined;
-      state.sourceParsedTokenAccounts = getEmptyDataWrapper();
-      state.targetAsset = getEmptyDataWrapper();
-      state.isSourceAssetWormholeWrapped = undefined;
       state.targetAddressHex = action.payload.parsedPayload.targetAddress;
       state.originChain = action.payload.parsedPayload.originChain;
       state.originAsset = action.payload.parsedPayload.originAddress;
-      state.originTokenId = undefined;
       state.activeStep = 3;
       state.isRecovery = true;
     },
@@ -255,6 +248,7 @@ export const {
   setIsRedeeming,
   setRedeemTx,
   reset,
+  setRecoveryVaa,
 } = nftSlice.actions;
 
 export default nftSlice.reducer;

@@ -56,6 +56,7 @@ export interface TransferState {
   isRedeeming: boolean;
   redeemTx: Transaction | undefined;
   isApproving: boolean;
+  isRecovery: boolean;
 }
 
 const initialState: TransferState = {
@@ -78,6 +79,7 @@ const initialState: TransferState = {
   isRedeeming: false,
   redeemTx: undefined,
   isApproving: false,
+  isRecovery: false,
 };
 
 export const transferSlice = createSlice({
@@ -235,18 +237,8 @@ export const transferSlice = createSlice({
         };
       }>
     ) => {
-      const prevTargetChain = state.targetChain;
       state.signedVAAHex = action.payload.vaa;
       state.targetChain = action.payload.parsedPayload.targetChain;
-      if (state.sourceChain === action.payload.parsedPayload.targetChain) {
-        state.sourceChain = prevTargetChain;
-      }
-      state.sourceParsedTokenAccount = undefined;
-      state.sourceParsedTokenAccounts = getEmptyDataWrapper();
-      // clear targetAsset so that components that fire before useFetchTargetAsset don't get stale data
-      state.targetAsset = getEmptyDataWrapper();
-      state.targetParsedTokenAccount = undefined;
-      state.isSourceAssetWormholeWrapped = undefined;
       state.targetAddressHex = action.payload.parsedPayload.targetAddress;
       state.originChain = action.payload.parsedPayload.originChain;
       state.originAsset = action.payload.parsedPayload.originAddress;
@@ -280,6 +272,7 @@ export const {
   setRedeemTx,
   setIsApproving,
   reset,
+  setRecoveryVaa,
 } = transferSlice.actions;
 
 export default transferSlice.reducer;
