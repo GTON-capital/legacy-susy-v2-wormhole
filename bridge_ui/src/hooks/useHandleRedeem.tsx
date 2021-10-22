@@ -37,6 +37,7 @@ import { isEVMChain } from "../utils/ethereum";
 import parseError from "../utils/parseError";
 import { signSendAndConfirm } from "../utils/solana";
 import { Alert } from "@material-ui/lab";
+import { postWithFees } from "../utils/terra";
 
 async function evm(
   dispatch: any,
@@ -128,10 +129,11 @@ async function terra(
       wallet.terraAddress,
       signedVAA
     );
-    const result = await wallet.post({
-      msgs: [msg],
-      memo: "Wormhole - Complete Transfer",
-    });
+    const result = await postWithFees(
+      wallet,
+      [msg],
+      "Wormhole - Complete Transfer"
+    );
     dispatch(
       setRedeemTx({ id: result.result.txhash, block: result.result.height })
     );
