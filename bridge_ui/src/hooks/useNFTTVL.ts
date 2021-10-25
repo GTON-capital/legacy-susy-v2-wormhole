@@ -2,7 +2,6 @@ import {
   ChainId,
   CHAIN_ID_BSC,
   CHAIN_ID_ETH,
-  CHAIN_ID_POLYGON,
   CHAIN_ID_SOLANA,
 } from "@certusone/wormhole-sdk";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
@@ -21,7 +20,6 @@ import {
   COVALENT_GET_TOKENS_URL,
   ETH_NFT_BRIDGE_ADDRESS,
   getNFTBridgeAddressForChain,
-  POLYGON_NFT_BRIDGE_ADDRESS,
   SOLANA_HOST,
   SOL_NFT_CUSTODY_ADDRESS,
 } from "../utils/consts";
@@ -124,11 +122,6 @@ const useNFTTVL = (): DataWrapper<NFTTVL[]> => {
   const [bscCovalentIsLoading, setBscCovalentIsLoading] = useState(false);
   const [bscCovalentError, setBscCovalentError] = useState("");
 
-  const [polygonCovalentData, setPolygonCovalentData] = useState(undefined);
-  const [polygonCovalentIsLoading, setPolygonCovalentIsLoading] =
-    useState(false);
-  const [polygonCovalentError, setPolygonCovalentError] = useState("");
-
   const [solanaCustodyTokens, setSolanaCustodyTokens] = useState<
     { pubkey: PublicKey; account: AccountInfo<ParsedAccountData> }[] | undefined
   >(undefined);
@@ -159,11 +152,6 @@ const useNFTTVL = (): DataWrapper<NFTTVL[]> => {
   const bscTVL = useMemo(
     () => calcEvmTVL(bscCovalentData, CHAIN_ID_BSC),
     [bscCovalentData]
-  );
-
-  const polygonTVL = useMemo(
-    () => calcEvmTVL(polygonCovalentData, CHAIN_ID_POLYGON),
-    [polygonCovalentData]
   );
 
   useEffect(() => {
@@ -224,34 +212,6 @@ const useNFTTVL = (): DataWrapper<NFTTVL[]> => {
 
   useEffect(() => {
     let cancelled = false;
-    setPolygonCovalentIsLoading(true);
-    axios
-      .get(
-        COVALENT_GET_TOKENS_URL(
-          CHAIN_ID_POLYGON,
-          POLYGON_NFT_BRIDGE_ADDRESS,
-          true,
-          false
-        )
-      )
-      .then(
-        (results) => {
-          if (!cancelled) {
-            setPolygonCovalentData(results.data);
-            setPolygonCovalentIsLoading(false);
-          }
-        },
-        (error) => {
-          if (!cancelled) {
-            setPolygonCovalentError("Unable to retrieve Polygon TVL.");
-            setPolygonCovalentIsLoading(false);
-          }
-        }
-      );
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
     const connection = new Connection(SOLANA_HOST, "confirmed");
     setSolanaCustodyTokensLoading(true);
     connection
@@ -277,19 +237,14 @@ const useNFTTVL = (): DataWrapper<NFTTVL[]> => {
   }, []);
 
   return useMemo(() => {
-    const tvlArray = [...ethTVL, ...bscTVL, ...polygonTVL, ...solanaTVL];
+    const tvlArray = [...ethTVL, ...bscTVL, ...solanaTVL];
 
     return {
       isFetching:
         ethCovalentIsLoading ||
         bscCovalentIsLoading ||
-        polygonCovalentIsLoading ||
         solanaCustodyTokensLoading,
-      error:
-        ethCovalentError ||
-        bscCovalentError ||
-        polygonCovalentError ||
-        solanaCustodyTokensError,
+      error: ethCovalentError || bscCovalentError || solanaCustodyTokensError,
       receivedAt: null,
       data: tvlArray,
     };
@@ -298,9 +253,6 @@ const useNFTTVL = (): DataWrapper<NFTTVL[]> => {
     ethCovalentIsLoading,
     bscCovalentError,
     bscCovalentIsLoading,
-    polygonTVL,
-    polygonCovalentError,
-    polygonCovalentIsLoading,
     ethTVL,
     bscTVL,
     solanaTVL,

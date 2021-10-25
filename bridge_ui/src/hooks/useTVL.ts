@@ -267,6 +267,7 @@ const useTVL = (): DataWrapper<TVL[]> => {
   useEffect(() => {
     let cancelled = false;
     const connection = new Connection(SOLANA_HOST, "confirmed");
+    setSolanaCustodyTokensLoading(true);
     connection
       .getParsedTokenAccountsByOwner(new PublicKey(SOL_CUSTODY_ADDRESS), {
         programId: TOKEN_PROGRAM_ID,

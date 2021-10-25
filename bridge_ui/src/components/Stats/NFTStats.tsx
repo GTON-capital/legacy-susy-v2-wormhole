@@ -61,11 +61,10 @@ const useStyles = makeStyles((theme) => ({
   },
   tableBox: {
     display: "flex",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     "& > *": {
       margin: theme.spacing(1),
     },
-    flexWrap: "wrap",
   },
   randomButton: {
     margin: "0px auto 8px",
@@ -73,23 +72,14 @@ const useStyles = makeStyles((theme) => ({
   },
   randomNftContainer: {
     minHeight: "550px",
-    maxWidth: "100%",
   },
   alignCenter: {
     margin: "0 auto",
     display: "block",
   },
-  tableContainer: {
-    flexGrow: 1,
-    width: "fit-content",
-    maxWidth: "100%",
-  },
 }));
 
-const BLACKLIST = [
-  "D9cX654dGb4GFzqq3RY7rhZbRkQqUkfggDZdnYxqv97g",
-  "0xfeA43A080297B02F2eBB88a27Cb0FA6DB1b33B1d",
-];
+const BLACKLIST = ["D9cX654dGb4GFzqq3RY7rhZbRkQqUkfggDZdnYxqv97g"];
 
 const NFTStats: React.FC<any> = () => {
   const classes = useStyles();
@@ -251,7 +241,7 @@ const NFTStats: React.FC<any> = () => {
         <CircularProgress className={classes.alignCenter} />
       ) : (
         <div className={classes.tableBox}>
-          <div className={classes.tableContainer}>{table}</div>
+          {table}
           {randomNFTContent}
         </div>
       )}
