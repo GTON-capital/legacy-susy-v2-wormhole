@@ -212,15 +212,6 @@ if pyth:
         port_forwards = [],
     )
 
-    # pyth2wormhole JS SDK test
-    local_resource(
-        name = "p2w-sdk-test",
-        resource_deps = ["wasm-gen"],
-        deps = ["third_party/pyth", "ethereum", "sdk"],
-        cmd = "tilt docker build -- -f ./third_party/pyth/p2w-sdk/Dockerfile .",
-        env = {"DOCKER_BUILDKIT": "1"},
-    )
-
 k8s_yaml_with_ns("devnet/eth-devnet.yaml")
 
 k8s_resource("eth-devnet", port_forwards = [
