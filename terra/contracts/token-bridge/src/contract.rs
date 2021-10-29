@@ -102,8 +102,33 @@ const CHAIN_ID: u16 = 3;
 
 const WRAPPED_ASSET_UPDATING: &str = "updating";
 
-pub fn init<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    let bucket = wrapped_asset_address(deps.storage);
+    let mut messages = vec![];
+    for item in bucket.range(None, None, Order::Ascending) {
+        let contract_address = item?.0;
+        messages.push(CosmosMsg::Wasm(WasmMsg::Migrate {
+            contract_addr: deps
+                .api
+                .addr_humanize(&contract_address.into())?
+                .to_string(),
+            new_code_id: 767,
+            msg: to_binary(&MigrateMsg {})?,
+        }));
+    }
+
+    let count = messages.len();
+
+    Ok(Response::new()
+        .add_messages(messages)
+        .add_attribute("migrate", "upgrade cw20 wrappers")
+        .add_attribute("count", count.to_string()))
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn instantiate(
+    deps: DepsMut,
     _env: Env,
     msg: InitMsg,
 ) -> StdResult<InitResponse> {
@@ -298,8 +323,8 @@ fn handle_create_asset_meta<S: Storage, A: Api, Q: Querier>(
         token_chain: CHAIN_ID,
         token_address: extend_address_to_32(&asset_canonical),
         decimals: token_info.decimals,
-        symbol: extend_string_to_32(&token_info.symbol)?,
-        name: extend_string_to_32(&token_info.name)?,
+        symbol: extend_string_to_32(&token_info.symbol),
+        name: extend_string_to_32(&token_info.name),
     };
 
     let token_bridge_message = TokenBridgeMessage {
@@ -307,8 +332,46 @@ fn handle_create_asset_meta<S: Storage, A: Api, Q: Querier>(
         payload: meta.serialize().to_vec(),
     };
 
-    Ok(HandleResponse {
-        messages: vec![CosmosMsg::Wasm(WasmMsg::Execute {
+    Ok(Response::new()
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: cfg.wormhole_contract,
+            msg: to_binary(&WormholeExecuteMsg::PostMessage {
+                message: Binary::from(token_bridge_message.serialize()),
+                nonce,
+            })?,
+            // forward coins sent to this message
+            funds: coins_after_tax(deps, info.funds.clone())?,
+        }))
+        .add_attribute("meta.token_chain", CHAIN_ID.to_string())
+        .add_attribute("meta.token", asset_address)
+        .add_attribute("meta.nonce", nonce.to_string())
+        .add_attribute("meta.block_time", env.block.time.seconds().to_string()))
+}
+
+fn handle_create_asset_meta_native_token(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    denom: String,
+    nonce: u32,
+) -> StdResult<Response> {
+    let cfg = config_read(deps.storage).load()?;
+    let mut asset_id = extend_address_to_32(&build_native_id(&denom).into());
+    asset_id[0] = 1;
+    let symbol = format_native_denom_symbol(&denom);
+    let meta: AssetMeta = AssetMeta {
+        token_chain: CHAIN_ID,
+        token_address: asset_id.clone(),
+        decimals: 6,
+        symbol: extend_string_to_32(&symbol),
+        name: extend_string_to_32(&symbol),
+    };
+    let token_bridge_message = TokenBridgeMessage {
+        action: Action::ATTEST_META,
+        payload: meta.serialize().to_vec(),
+    };
+    Ok(Response::new()
+        .add_message(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: cfg.wormhole_contract,
             msg: to_binary(&WormholeHandleMsg::PostMessage {
                 message: Binary::from(token_bridge_message.serialize()),
