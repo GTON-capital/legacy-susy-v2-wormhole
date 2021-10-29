@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"encoding/hex"
+	"github.com/certusone/wormhole/node/pkg/db"
 	"github.com/mr-tron/base58"
 
 	"github.com/prometheus/client_golang/prometheus"
