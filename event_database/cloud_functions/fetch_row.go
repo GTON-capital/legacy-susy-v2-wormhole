@@ -2,18 +2,13 @@
 package p
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"html"
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"strings"
-	"sync"
-
-	"cloud.google.com/go/bigtable"
 )
 
 // client is a global Bigtable client, to avoid initializing a new client for
@@ -141,19 +136,26 @@ func ReadRow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientOnce.Do(func() {
-		// Declare a separate err variable to avoid shadowing client.
-		var err error
-		project := os.Getenv("GCP_PROJECT")
-		client, err = bigtable.NewClient(context.Background(), project, "wormhole")
-		if err != nil {
-			http.Error(w, "Error initializing client", http.StatusInternalServerError)
-			log.Printf("bigtable.NewClient: %v", err)
-			return
+	// pad sequence to 16 characters
+	if len(sequence) <= 15 {
+		sequence = fmt.Sprintf("%016s", sequence)
+	}
+	// convert chain name to chainID
+	if len(emitterChain) > 1 {
+		chainNameMap := map[string]string{
+			"solana":   "1",
+			"ethereum": "2",
+			"terra":    "3",
+			"bsc":      "4",
+			"polygon":  "5",
 		}
-	})
+		lowercaseChain := strings.ToLower(emitterChain)
+		if _, ok := chainNameMap[lowercaseChain]; ok {
+			emitterChain = chainNameMap[lowercaseChain]
+		}
+	}
+	rowKey = emitterChain + ":" + emitterAddress + ":" + sequence
 
-	tbl := client.Open("v2Events")
 	row, err := tbl.ReadRow(r.Context(), rowKey)
 	if err != nil {
 		http.Error(w, "Error reading rows", http.StatusInternalServerError)
