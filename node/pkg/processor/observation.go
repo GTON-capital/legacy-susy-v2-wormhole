@@ -4,11 +4,9 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"time"
-
-	node_common "github.com/SuSy-One/susy-v2/node/pkg/common"
-	"github.com/SuSy-One/susy-v2/node/pkg/db"
-	"github.com/SuSy-One/susy-v2/node/pkg/reporter"
+	node_common "github.com/certusone/wormhole/node/pkg/common"
+	"github.com/certusone/wormhole/node/pkg/db"
+	"github.com/mr-tron/base58"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -200,19 +198,6 @@ func (p *Processor) handleObservation(ctx context.Context, m *gossipv1.SignedObs
 			Payload:          v.Payload,
 			ConsistencyLevel: v.ConsistencyLevel,
 		}
-
-		// report the individual signature
-		signatureReport := &reporter.VerifiedPeerSignature{
-			GuardianAddress: their_addr,
-			Signature:       m.Signature,
-			EmitterChain:    v.EmitterChain,
-			EmitterAddress:  v.EmitterAddress,
-			Sequence:        v.Sequence,
-		}
-		p.attestationEvents.ReportVerifiedPeerSignature(signatureReport)
-
-		// report the current VAAState
-		p.attestationEvents.ReportVAAStateUpdate(signed)
 
 		// 2/3+ majority required for VAA to be valid - wait until we have quorum to submit VAA.
 		quorum := CalculateQuorum(len(gs.Keys))
