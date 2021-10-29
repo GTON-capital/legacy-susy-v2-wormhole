@@ -74,10 +74,20 @@ export const WORMHOLE_RPC_HOSTS =
     ? [
         "https://wormhole-v2-mainnet-api.certus.one",
         "https://wormhole.inotel.ro",
+        "https://wormhole-v2-mainnet-api.mcf.rocks",
+        "https://wormhole-v2-mainnet-api.chainlayer.network",
+        "https://wormhole-v2-mainnet-api.staking.fund",
+        "https://wormhole-v2-mainnet-api.chainlayer.network",
       ]
     : CLUSTER === "testnet"
-    ? ["https://wormhole-v2-testnet-api.certus.one"]
-    : ["http://localhost:8080"];
+    ? [
+        "https://wormhole-v2-testnet-api.certus.one",
+        "https://wormhole-v2-testnet-api.mcf.rocks",
+        "https://wormhole-v2-testnet-api.chainlayer.network",
+        "https://wormhole-v2-testnet-api.staking.fund",
+        "https://wormhole-v2-testnet-api.chainlayer.network",
+      ]
+    : ["http://localhost:7071"];
 export const ETH_NETWORK_CHAIN_ID =
   CLUSTER === "mainnet" ? 1 : CLUSTER === "testnet" ? 5 : 1337;
 export const SOLANA_HOST =
