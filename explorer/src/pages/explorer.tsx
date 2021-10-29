@@ -11,6 +11,12 @@ import { Layout } from '~/components/Layout';
 import { SEO } from '~/components/SEO';
 import { ExplorerQuery } from '~/components/ExplorerQuery'
 import { titleStyles } from '~/styles';
+import { WithNetwork, NetworkSelect } from '~/components/NetworkSelect'
+import { ExplorerSearchForm, ExplorerTxForm } from '~/components/App/ExplorerSearch';
+import { ChainID } from '~/utils/misc/constants';
+import { OutboundLink } from 'gatsby-plugin-google-gtag';
+import { nativeExplorerContractUri } from '~/components/ExplorerStats/utils';
+import { CloseOutlined } from '@ant-design/icons';
 
 
 // form props
@@ -147,69 +153,32 @@ const Explorer = ({ location, intl, navigate }: ExplorerProps) => {
                                 help={formatHelp("explorer.emitterAddressHelp")}
                                 rules={[{ required: true }]}
                             >
-                                <TextArea onChange={onAddress} allowClear autoSize />
-                            </Form.Item>
+                                {emitterAddress && emitterChain ? (
+                                    // show heading with the context of the address
+                                    <Title level={3} style={{ ...titleStyles }}>
+                                        Recent messages from {ChainID[emitterChain]}&nbsp;
+                                        {nativeExplorerContractUri(emitterChain, emitterAddress) ?
+                                            <OutboundLink
+                                                href={nativeExplorerContractUri(emitterChain, emitterAddress)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                {contractNameFormatter(emitterAddress, emitterChain)}
+                                            </OutboundLink> : contractNameFormatter(emitterAddress, emitterChain)}
+                                        :
+                                    </Title>
 
-                            <Form.Item
-                                name="emitterChain"
-                                label={formatLabel("explorer.emitterChain")}
-                                help={formatHelp("explorer.emitterChainHelp")}
-                                rules={[{ required: true }]}
-                                style={
-                                    screens.md === false ? {
-                                        display: 'block', width: '100%'
-                                    } : {
-                                        display: 'inline-block', width: '50%'
-                                    }}
-                            >
-                                <Radio.Group
-                                    optionType="button"
-                                    options={emitterChains}
-                                />
-                            </Form.Item>
+                                ) : emitterChain ? (
+                                    // show heading with the context of the chain
+                                    <Title level={3} style={{ ...titleStyles }}>
+                                        Recent {ChainID[emitterChain]} activity
+                                    </Title>
+                                ) : (
+                                    // show heading for root view, all chains
+                                    <Title level={3} style={{ ...titleStyles }}>
+                                        {intl.formatMessage({ id: 'explorer.stats.heading' })}
+                                    </Title>
 
-                            <Form.Item shouldUpdate
-                                style={
-                                    screens.md === false ? {
-                                        display: 'block', width: '100%'
-                                    } : {
-                                        display: 'inline-block', width: '50%'
-                                    }}
-                            >
-                                {() => (
-
-                                    <Form.Item
-                                        name="sequence"
-                                        label={formatLabel("explorer.sequence")}
-                                        help={formatHelp("explorer.sequenceHelp")}
-                                        rules={[{ required: true }]}
-                                    >
-
-                                        <Input
-                                            onChange={onSequence}
-                                            style={{ padding: "0 0 0 14px" }}
-
-                                            allowClear
-                                            suffix={
-                                                <Button
-                                                    size="large"
-                                                    type="primary"
-                                                    style={{ width: 80 }}
-                                                    icon={
-                                                        <SearchOutlined style={{ fontSize: 16, color: 'black' }} />
-                                                    }
-                                                    htmlType="submit"
-                                                    disabled={
-                                                        // true if the value of any field is falsey, or
-                                                        (Object.values({ ...form.getFieldsValue(formFields) }).some(v => !v)) ||
-                                                        // true if the length of the errors array is true.
-                                                        !!form.getFieldsError().filter(({ errors }) => errors.length).length
-                                                    }
-                                                />
-                                            }
-                                        />
-
-                                    </Form.Item>
                                 )}
                             </Form.Item>
 

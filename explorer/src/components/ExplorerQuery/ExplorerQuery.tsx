@@ -3,10 +3,14 @@ import { Spin, Typography } from 'antd'
 const { Title } = Typography
 
 import { FormattedMessage } from 'gatsby-plugin-intl'
-import { arrayify, isHexString, zeroPad } from "ethers/lib/utils";
+import { arrayify, isHexString, zeroPad, hexlify } from "ethers/lib/utils";
+import { Bech32, toHex, fromHex } from "@cosmjs/encoding"
 import { ExplorerSummary } from '~/components/ExplorerSummary';
 import { titleStyles } from '~/styles';
-
+import { NetworkContext } from '~/components/NetworkSelect';
+import { getEmitterAddressSolana } from "@certusone/wormhole-sdk";
+import { ChainIDs, chainIDs } from '~/utils/misc/constants';
+import { PublicKey } from '@solana/web3.js';
 
 export interface VAA {
     Version: number | string,
@@ -21,11 +25,13 @@ export interface VAA {
     Payload: string // base64 encoded byte array
 }
 export interface BigTableMessage {
-    InitiatingTxID: string
-    GuardianAddresses: string[],
-    SignedVAABytes: string  // base64 encoded byte array
-    SignedVAA: VAA
-    QuorumTime: string  // "2021-08-11 00:16:11.757 +0000 UTC"
+    InitiatingTxID?: string
+    SignedVAABytes?: string  // base64 encoded byte array
+    SignedVAA?: VAA
+    QuorumTime?: string  // "2021-08-11 00:16:11.757 +0000 UTC"
+    EmitterChain: keyof ChainIDs
+    EmitterAddress: string
+    Sequence: string
 }
 
 interface ExplorerQuery {
@@ -58,14 +64,34 @@ const ExplorerQuery = (props: ExplorerQuery) => {
                 // TODO - properly encode the this to a hex string, Buffer is deprecated.
                 let maybeString = new Buffer(paddedAddressArray).toString('hex');
 
-                paddedAddress = maybeString
+            if (sequence.length <= 15) {
+                paddedSequence = sequence.padStart(16, "0")
             } else {
                 // must already be padded
                 paddedAddress = emitterAddress
             }
-        } else {
-            // TODO - zero pad Terra address, if needed
-            paddedAddress = emitterAddress
+            url = `${base}/readrow?emitterChain=${emitterChain}&emitterAddress=${paddedAddress}&sequence=${paddedSequence}`
+        } else if (txId) {
+            let transformedTxId = txId
+            if (isHexString(txId)) {
+                // valid hexString, no transformation needed.
+            } else {
+                try {
+                    let pubKey = new PublicKey(txId).toBytes()
+                    let solHex = hexlify(pubKey)
+                    transformedTxId = solHex
+                } catch (_) {
+                    // not solana, try terra
+                    try {
+                        let arr = fromHex(txId)
+                        let terraHex = hexlify(arr)
+                        transformedTxId = terraHex
+                    } catch (_) {
+                        // do nothing
+                    }
+                }
+            }
+            url = `${base}/transaction?id=${transformedTxId}`
         }
 
         const base = process.env.GATSBY_BIGTABLE_URL
