@@ -8,8 +8,10 @@ import ReactTimeAgo from 'react-time-ago'
 import { titleStyles } from '~/styles';
 import { CloseOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Link } from 'gatsby';
-import { contractNameFormatter, nativeExplorerUri } from '../ExplorerStats/utils';
+import { contractNameFormatter, nativeExplorerContractUri, nativeExplorerTxUri } from '../ExplorerStats/utils';
 import { OutboundLink } from 'gatsby-plugin-google-gtag';
+import { chainIDs } from '~/utils/misc/constants';
+import { hexToNativeString } from '@certusone/wormhole-sdk';
 
 interface SummaryProps {
     emitterChain?: number,
@@ -81,18 +83,7 @@ const Summary = (props: SummaryProps) => {
                     style={{ fontSize: 12, marginBottom: 20 }}
                 >{JSON.stringify(SignedVAA, undefined, 2)}</pre>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-
-                {props.emitterChain && props.emitterAddress && nativeExplorerUri(props.emitterChain, props.emitterAddress) ?
-                    <OutboundLink
-                        href={nativeExplorerUri(props.emitterChain, props.emitterAddress)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: 16 }}
-                    >
-                        {'View "'}{contractNameFormatter(props.emitterAddress, props.emitterChain)}{'" emitter contract on native explorer'}
-                    </OutboundLink> : <div />}
-
+            <div style={{ display: 'flex', justifyContent: "flex-end" }}>
                 {props.lastFetched ? (
                     <span>
                         <FormattedMessage id="explorer.lastUpdated" />:&nbsp;
@@ -100,6 +91,26 @@ const Summary = (props: SummaryProps) => {
                     </span>
 
                 ) : null}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', }}>
+                {EmitterChain && EmitterAddress && nativeExplorerContractUri(chainId, EmitterAddress) ?
+                    <OutboundLink
+                        href={nativeExplorerContractUri(chainId, EmitterAddress)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: 16, marginBottom: '6px 0' }}
+                    >
+                        {'View "'}{contractNameFormatter(EmitterAddress, chainId)}{'" contract on native explorer'}
+                    </OutboundLink> : <div />}
+                {transactionId && EmitterChain ?
+                    <OutboundLink
+                        href={nativeExplorerTxUri(chainId, transactionId)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: 16, margin: '6px 0' }}
+                    >
+                        {'View transaction "'}{transactionId}{'" on native explorer'}
+                    </OutboundLink> : <div />}
             </div>
         </>
     )
