@@ -163,21 +163,6 @@ func (s *nodePrivilegedService) InjectGovernanceVAA(ctx context.Context, req *no
 		v   *vaa.VAA
 		err error
 	)
-	switch payload := req.Payload.(type) {
-	case *nodev1.InjectGovernanceVAARequest_GuardianSet:
-		v, err = adminGuardianSetUpdateToVAA(payload.GuardianSet, req.CurrentSetIndex, req.Nonce, req.Sequence)
-	case *nodev1.InjectGovernanceVAARequest_ContractUpgrade:
-		v, err = adminContractUpgradeToVAA(payload.ContractUpgrade, req.CurrentSetIndex, req.Nonce, req.Sequence)
-	case *nodev1.InjectGovernanceVAARequest_BridgeRegisterChain:
-		v, err = tokenBridgeRegisterChain(payload.BridgeRegisterChain, req.CurrentSetIndex, req.Nonce, req.Sequence)
-	case *nodev1.InjectGovernanceVAARequest_BridgeContractUpgrade:
-		v, err = tokenBridgeUpgradeContract(payload.BridgeContractUpgrade, req.CurrentSetIndex, req.Nonce, req.Sequence)
-	default:
-		panic(fmt.Sprintf("unsupported VAA type: %T", payload))
-	}
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
 
 	digests := make([][]byte, len(req.Messages))
 

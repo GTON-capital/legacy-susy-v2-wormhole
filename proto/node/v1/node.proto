@@ -27,6 +27,11 @@ message InjectGovernanceVAARequest {
   // Index of the current guardian set.
   uint32 current_set_index = 1;
 
+  // List of governance VAA messages to inject.
+  repeated GovernanceMessage messages = 2;
+}
+
+message GovernanceMessage {
   // Sequence number. This is critical for replay protection - make sure the sequence number
   // is unique for every new manually injected governance VAA. Sequences are tracked
   // by emitter, and manually injected VAAs all use a single hardcoded emitter.
