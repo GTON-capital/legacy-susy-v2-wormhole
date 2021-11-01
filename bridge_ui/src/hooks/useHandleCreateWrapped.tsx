@@ -45,15 +45,22 @@ async function evm(
   enqueueSnackbar: any,
   signer: Signer,
   signedVAA: Uint8Array,
-  chainId: ChainId
+  chainId: ChainId,
+  shouldUpdate: boolean
 ) {
   dispatch(setIsCreating(true));
   try {
-    const receipt = await createWrappedOnEth(
-      getTokenBridgeAddressForChain(chainId),
-      signer,
-      signedVAA
-    );
+    const receipt = shouldUpdate
+      ? await updateWrappedOnEth(
+          getTokenBridgeAddressForChain(chainId),
+          signer,
+          signedVAA
+        )
+      : await createWrappedOnEth(
+          getTokenBridgeAddressForChain(chainId),
+          signer,
+          signedVAA
+        );
     dispatch(
       setCreateTx({ id: receipt.transactionHash, block: receipt.blockNumber })
     );
@@ -135,11 +142,6 @@ async function terra(
       [msg],
       "Wormhole - Create Wrapped"
     );
-    const result = await postWithFees(
-      wallet,
-      [msg],
-      "Wormhole - Create Wrapped"
-    );
     dispatch(
       setCreateTx({ id: result.result.txhash, block: result.result.height })
     );
@@ -166,7 +168,14 @@ export function useHandleCreateWrapped(shouldUpdate: boolean) {
   const terraWallet = useConnectedWallet();
   const handleCreateClick = useCallback(() => {
     if (isEVMChain(targetChain) && !!signer && !!signedVAA) {
-      evm(dispatch, enqueueSnackbar, signer, signedVAA, targetChain);
+      evm(
+        dispatch,
+        enqueueSnackbar,
+        signer,
+        signedVAA,
+        targetChain,
+        shouldUpdate
+      );
     } else if (
       targetChain === CHAIN_ID_SOLANA &&
       !!solanaWallet &&
