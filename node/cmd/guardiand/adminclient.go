@@ -207,5 +207,6 @@ func runDumpVAAByMessageID(cmd *cobra.Command, args []string) {
 		log.Fatalf("failed to decode VAA: %v", err)
 	}
 
-	log.Printf("VAA with digest %s: %+v", v.HexDigest(), spew.Sdump(v))
+	log.Printf("VAA with digest %s: %+v\n", v.HexDigest(), spew.Sdump(v))
+	fmt.Printf("Bytes:\n%s\n", hex.EncodeToString(resp.VaaBytes))
 }
