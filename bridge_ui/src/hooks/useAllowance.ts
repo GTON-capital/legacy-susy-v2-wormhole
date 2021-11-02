@@ -15,7 +15,8 @@ import { ETH_TOKEN_BRIDGE_ADDRESS } from "../utils/consts";
 export default function useAllowance(
   chainId: ChainId,
   tokenAddress?: string,
-  transferAmount?: BigInt
+  transferAmount?: BigInt,
+  sourceIsNative?: boolean
 ) {
   const dispatch = useDispatch();
   const [allowance, setAllowance] = useState<BigInt | null>(null);
@@ -23,7 +24,8 @@ export default function useAllowance(
   const isApproveProcessing = useSelector(selectTransferIsApproving);
   const { signer } = useEthereumProvider();
   const sufficientAllowance =
-    chainId !== CHAIN_ID_ETH ||
+    !isEVMChain(chainId) ||
+    sourceIsNative ||
     (allowance && transferAmount && allowance >= transferAmount);
 
   useEffect(() => {

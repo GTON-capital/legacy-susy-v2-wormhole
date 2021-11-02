@@ -71,7 +71,6 @@ function useCheckIfWormholeWrapped(nft?: boolean) {
   const { provider } = useEthereumProvider();
   useEffect(() => {
     // TODO: loading state, error state
-    dispatch(setSourceWormholeWrappedInfo(undefined));
     let cancelled = false;
     (async () => {
       if (sourceChain === CHAIN_ID_ETH && provider && sourceAsset) {

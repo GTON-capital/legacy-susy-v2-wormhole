@@ -78,7 +78,7 @@ function NFT() {
         </Step>
         <Step
           expanded={activeStep >= 1}
-          disabled={preventNavigation || isRedeemComplete}
+          disabled={preventNavigation || isRedeemComplete || activeStep === 0}
         >
           <StepButton onClick={() => dispatch(setStep(1))}>Target</StepButton>
           <StepContent>
@@ -86,7 +86,7 @@ function NFT() {
           </StepContent>
         </Step>
         <Step expanded={activeStep >= 2} disabled={isSendComplete}>
-          <StepButton onClick={() => dispatch(setStep(2))}>Send NFT</StepButton>
+          <StepButton disabled>Send NFT</StepButton>
           <StepContent>
             {activeStep === 2 ? <Send /> : <SendPreview />}
           </StepContent>

@@ -3,6 +3,7 @@ import { makeStyles, MenuItem, TextField, Typography } from "@material-ui/core";
 import { Alert } from "@material-ui/lab";
 import { useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import useGetTargetParsedTokenAccounts from "../../hooks/useGetTargetParsedTokenAccounts";
 import useIsWalletReady from "../../hooks/useIsWalletReady";
 import useSyncTargetAddress from "../../hooks/useSyncTargetAddress";
 import { EthGasEstimateSummary } from "../../hooks/useTransactionFees";
@@ -12,10 +13,11 @@ import {
   selectTransferSourceChain,
   selectTransferTargetAddressHex,
   selectTransferTargetAsset,
+  selectTransferTargetAssetWrapper,
   selectTransferTargetBalanceString,
   selectTransferTargetChain,
   selectTransferTargetError,
-  UNREGISTERED_ERROR_MESSAGE,
+  selectTransferTargetParsedTokenAccount,
 } from "../../store/selectors";
 import { incrementStep, setTargetChain } from "../../store/transferSlice";
 import { hexToNativeString } from "../../utils/array";
@@ -39,7 +41,33 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
+export const useTargetInfo = () => {
+  const targetChain = useSelector(selectTransferTargetChain);
+  const targetAddressHex = useSelector(selectTransferTargetAddressHex);
+  const targetAsset = useSelector(selectTransferTargetAsset);
+  const targetParsedTokenAccount = useSelector(
+    selectTransferTargetParsedTokenAccount
+  );
+  const tokenName = targetParsedTokenAccount?.name;
+  const symbol = targetParsedTokenAccount?.symbol;
+  const logo = targetParsedTokenAccount?.logo;
+  const readableTargetAddress =
+    hexToNativeString(targetAddressHex, targetChain) || "";
+  return useMemo(
+    () => ({
+      targetChain,
+      targetAsset,
+      tokenName,
+      symbol,
+      logo,
+      readableTargetAddress,
+    }),
+    [targetChain, targetAsset, tokenName, symbol, logo, readableTargetAddress]
+  );
+};
+
 function Target() {
+  useGetTargetParsedTokenAccounts();
   const classes = useStyles();
   const dispatch = useDispatch();
   const sourceChain = useSelector(selectTransferSourceChain);
@@ -47,16 +75,23 @@ function Target() {
     () => CHAINS.filter((c) => c.id !== sourceChain),
     [sourceChain]
   );
-  const targetChain = useSelector(selectTransferTargetChain);
-  const targetAddressHex = useSelector(selectTransferTargetAddressHex);
-  const targetAsset = useSelector(selectTransferTargetAsset);
-  const readableTargetAddress =
-    hexToNativeString(targetAddressHex, targetChain) || "";
+  const { error: targetAssetError, data } = useSelector(
+    selectTransferTargetAssetWrapper
+  );
+  const {
+    targetChain,
+    targetAsset,
+    tokenName,
+    symbol,
+    logo,
+    readableTargetAddress,
+  } = useTargetInfo();
   const uiAmountString = useSelector(selectTransferTargetBalanceString);
   const error = useSelector(selectTransferTargetError);
   const isTargetComplete = useSelector(selectTransferIsTargetComplete);
   const shouldLockFields = useSelector(selectTransferShouldLockFields);
   const { statusMessage } = useIsWalletReady(targetChain);
+  const isLoading = !statusMessage && !targetAssetError && !data;
   const { associatedAccountExists, setAssociatedAccountExists } =
     useAssociatedAccountExistsState(
       targetChain,
@@ -125,14 +160,14 @@ function Target() {
       <ButtonWithLoader
         disabled={!isTargetComplete || !associatedAccountExists}
         onClick={handleNextClick}
-        showLoader={false}
-        error={statusMessage || error}
+        showLoader={isLoading}
+        error={
+          statusMessage || (isLoading ? undefined : error || targetAssetError)
+        }
       >
         Next
       </ButtonWithLoader>
-      {!statusMessage && error === UNREGISTERED_ERROR_MESSAGE ? (
-        <RegisterNowButton />
-      ) : null}
+      {!statusMessage && data && !data.doesExist ? <RegisterNowButton /> : null}
     </>
   );
 }

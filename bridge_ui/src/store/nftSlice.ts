@@ -5,6 +5,7 @@ import {
 } from "@certusone/wormhole-sdk";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { StateSafeWormholeWrappedInfo } from "../hooks/useCheckIfWormholeWrapped";
+import { ForeignAssetInfo } from "../hooks/useFetchForeignAsset";
 import {
   DataWrapper,
   errorDataWrapper,
@@ -42,8 +43,7 @@ export interface NFTState {
   sourceParsedTokenAccounts: DataWrapper<NFTParsedTokenAccount[]>;
   targetChain: ChainId;
   targetAddressHex: string | undefined;
-  targetAsset: string | null | undefined;
-  targetParsedTokenAccount: NFTParsedTokenAccount | undefined;
+  targetAsset: DataWrapper<ForeignAssetInfo>;
   transferTx: Transaction | undefined;
   signedVAAHex: string | undefined;
   isSending: boolean;
@@ -63,8 +63,7 @@ const initialState: NFTState = {
   originTokenId: undefined,
   targetChain: CHAIN_ID_ETH,
   targetAddressHex: undefined,
-  targetAsset: undefined,
-  targetParsedTokenAccount: undefined,
+  targetAsset: getEmptyDataWrapper(),
   transferTx: undefined,
   signedVAAHex: undefined,
   isSending: false,
@@ -90,29 +89,25 @@ export const nftSlice = createSlice({
       state.sourceChain = action.payload;
       state.sourceParsedTokenAccount = undefined;
       state.sourceParsedTokenAccounts = getEmptyDataWrapper();
+      // clear targetAsset so that components that fire before useFetchTargetAsset don't get stale data
+      state.targetAsset = getEmptyDataWrapper();
+      state.targetAddressHex = undefined;
+      state.isSourceAssetWormholeWrapped = undefined;
+      state.originChain = undefined;
+      state.originAsset = undefined;
+      state.originTokenId = undefined;
       if (state.targetChain === action.payload) {
         state.targetChain = prevSourceChain;
-        state.targetAddressHex = undefined;
-        // clear targetAsset so that components that fire before useFetchTargetAsset don't get stale data
-        state.targetAsset = undefined;
-        state.targetParsedTokenAccount = undefined;
       }
     },
     setSourceWormholeWrappedInfo: (
       state,
-      action: PayloadAction<StateSafeWormholeWrappedInfo | undefined>
+      action: PayloadAction<StateSafeWormholeWrappedInfo>
     ) => {
-      if (action.payload) {
-        state.isSourceAssetWormholeWrapped = action.payload.isWrapped;
-        state.originChain = action.payload.chainId;
-        state.originAsset = action.payload.assetAddress;
-        state.originTokenId = action.payload.tokenId;
-      } else {
-        state.isSourceAssetWormholeWrapped = undefined;
-        state.originChain = undefined;
-        state.originAsset = undefined;
-        state.originTokenId = undefined;
-      }
+      state.isSourceAssetWormholeWrapped = action.payload.isWrapped;
+      state.originChain = action.payload.chainId;
+      state.originAsset = action.payload.assetAddress;
+      state.originTokenId = action.payload.tokenId;
     },
     setSourceWalletAddress: (
       state,
@@ -125,6 +120,13 @@ export const nftSlice = createSlice({
       action: PayloadAction<NFTParsedTokenAccount | undefined>
     ) => {
       state.sourceParsedTokenAccount = action.payload;
+      // clear targetAsset so that components that fire before useFetchTargetAsset don't get stale data
+      state.targetAsset = getEmptyDataWrapper();
+      state.targetAddressHex = undefined;
+      state.isSourceAssetWormholeWrapped = undefined;
+      state.originChain = undefined;
+      state.originAsset = undefined;
+      state.originTokenId = undefined;
     },
     setSourceParsedTokenAccounts: (
       state,
@@ -156,12 +158,15 @@ export const nftSlice = createSlice({
       state.targetChain = action.payload;
       state.targetAddressHex = undefined;
       // clear targetAsset so that components that fire before useFetchTargetAsset don't get stale data
-      state.targetAsset = undefined;
-      state.targetParsedTokenAccount = undefined;
+      state.targetAsset = getEmptyDataWrapper();
       if (state.sourceChain === action.payload) {
         state.sourceChain = prevTargetChain;
         state.activeStep = 0;
         state.sourceParsedTokenAccount = undefined;
+        state.isSourceAssetWormholeWrapped = undefined;
+        state.originChain = undefined;
+        state.originAsset = undefined;
+        state.originTokenId = undefined;
         state.sourceParsedTokenAccounts = getEmptyDataWrapper();
       }
     },
@@ -170,15 +175,9 @@ export const nftSlice = createSlice({
     },
     setTargetAsset: (
       state,
-      action: PayloadAction<string | null | undefined>
+      action: PayloadAction<DataWrapper<ForeignAssetInfo>>
     ) => {
       state.targetAsset = action.payload;
-    },
-    setTargetParsedTokenAccount: (
-      state,
-      action: PayloadAction<NFTParsedTokenAccount | undefined>
-    ) => {
-      state.targetParsedTokenAccount = action.payload;
     },
     setTransferTx: (state, action: PayloadAction<Transaction>) => {
       state.transferTx = action.payload;
@@ -220,12 +219,15 @@ export const nftSlice = createSlice({
       state.targetChain = action.payload.parsedPayload.targetChain;
       if (state.sourceChain === action.payload.parsedPayload.targetChain) {
         state.sourceChain = prevTargetChain;
-        state.sourceParsedTokenAccount = undefined;
-        state.sourceParsedTokenAccounts = getEmptyDataWrapper();
       }
+      state.sourceParsedTokenAccount = undefined;
+      state.sourceParsedTokenAccounts = getEmptyDataWrapper();
+      state.targetAsset = getEmptyDataWrapper();
+      state.isSourceAssetWormholeWrapped = undefined;
       state.targetAddressHex = action.payload.parsedPayload.targetAddress;
       state.originChain = action.payload.parsedPayload.originChain;
       state.originAsset = action.payload.parsedPayload.originAddress;
+      state.originTokenId = undefined;
       state.activeStep = 3;
       state.isRecovery = true;
     },
@@ -247,7 +249,6 @@ export const {
   setTargetChain,
   setTargetAddressHex,
   setTargetAsset,
-  setTargetParsedTokenAccount,
   setTransferTx,
   setSignedVAAHex,
   setIsSending,
