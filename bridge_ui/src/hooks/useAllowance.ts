@@ -21,6 +21,7 @@ export default function useAllowance(
   const { signer } = useEthereumProvider();
   const sufficientAllowance =
     !isEVMChain(chainId) ||
+    sourceIsNative ||
     (allowance && transferAmount && allowance >= transferAmount);
 
   useEffect(() => {

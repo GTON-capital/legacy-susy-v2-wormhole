@@ -121,7 +121,10 @@ export const selectNFTTargetError = (state: RootState) => {
   if (state.nft.sourceChain === state.nft.targetChain) {
     return "Select a different target and source";
   }
-  if (state.nft.targetChain === CHAIN_ID_SOLANA && !state.nft.targetAsset) {
+  if (
+    state.nft.targetChain === CHAIN_ID_SOLANA &&
+    !selectNFTTargetAsset(state)
+  ) {
     // target asset is only required for solana
     // in the cases of new transfers, target asset will not exist and be created on redeem
     // Solana requires the derived address to derive the associated token account which is the target on the vaa
@@ -258,12 +261,12 @@ export const selectTransferTargetError = (state: RootState) => {
   if (state.transfer.sourceChain === state.transfer.targetChain) {
     return "Select a different target and source";
   }
-  if (!state.transfer.targetAsset) {
+  if (!selectTransferTargetAsset(state)) {
     return UNREGISTERED_ERROR_MESSAGE;
   }
   if (
     isEVMChain(state.transfer.targetChain) &&
-    state.transfer.targetAsset === ethers.constants.AddressZero
+    selectTransferTargetAsset(state) === ethers.constants.AddressZero
   ) {
     return UNREGISTERED_ERROR_MESSAGE;
   }

@@ -221,12 +221,15 @@ export const nftSlice = createSlice({
       state.targetChain = action.payload.parsedPayload.targetChain;
       if (state.sourceChain === action.payload.parsedPayload.targetChain) {
         state.sourceChain = prevTargetChain;
-        state.sourceParsedTokenAccount = undefined;
-        state.sourceParsedTokenAccounts = getEmptyDataWrapper();
       }
+      state.sourceParsedTokenAccount = undefined;
+      state.sourceParsedTokenAccounts = getEmptyDataWrapper();
+      state.targetAsset = getEmptyDataWrapper();
+      state.isSourceAssetWormholeWrapped = undefined;
       state.targetAddressHex = action.payload.parsedPayload.targetAddress;
       state.originChain = action.payload.parsedPayload.originChain;
       state.originAsset = action.payload.parsedPayload.originAddress;
+      state.originTokenId = undefined;
       state.activeStep = 3;
       state.isRecovery = true;
     },

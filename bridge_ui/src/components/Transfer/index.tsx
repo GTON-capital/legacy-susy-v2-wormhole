@@ -9,7 +9,6 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import useCheckIfWormholeWrapped from "../../hooks/useCheckIfWormholeWrapped";
 import useFetchTargetAsset from "../../hooks/useFetchTargetAsset";
-import useGetBalanceEffect from "../../hooks/useGetBalanceEffect";
 import {
   selectTransferActiveStep,
   selectTransferIsRedeemComplete,
@@ -30,7 +29,6 @@ import TargetPreview from "./TargetPreview";
 function Transfer() {
   useCheckIfWormholeWrapped();
   useFetchTargetAsset();
-  useGetBalanceEffect("target");
   const dispatch = useDispatch();
   const activeStep = useSelector(selectTransferActiveStep);
   const isSending = useSelector(selectTransferIsSending);

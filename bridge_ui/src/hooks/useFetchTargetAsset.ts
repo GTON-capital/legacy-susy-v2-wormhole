@@ -14,7 +14,7 @@ import { arrayify } from "@ethersproject/bytes";
 import { Connection } from "@solana/web3.js";
 import { LCDClient } from "@terra-money/terra.js";
 import { ethers } from "ethers";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useEthereumProvider } from "../contexts/EthereumProviderContext";
 import {
@@ -88,10 +88,8 @@ function useFetchTargetAsset(nft?: boolean) {
           })
         )
       );
-      setArgs();
       return;
     }
-    // TODO: loading state, error state
     let cancelled = false;
     (async () => {
       if (
@@ -101,7 +99,7 @@ function useFetchTargetAsset(nft?: boolean) {
         originChain &&
         originAsset
       ) {
-        dispatch(setTargetAsset(undefined));
+        dispatch(setTargetAsset(fetchDataWrapper()));
         try {
           const asset = await (nft
             ? getForeignAssetEthNFT(
@@ -125,7 +123,6 @@ function useFetchTargetAsset(nft?: boolean) {
                 })
               )
             );
-            setArgs();
           }
         } catch (e) {
           if (!cancelled) {
@@ -140,7 +137,7 @@ function useFetchTargetAsset(nft?: boolean) {
         }
       }
       if (targetChain === CHAIN_ID_SOLANA && originChain && originAsset) {
-        dispatch(setTargetAsset(undefined));
+        dispatch(setTargetAsset(fetchDataWrapper()));
         try {
           const connection = new Connection(SOLANA_HOST, "confirmed");
           const asset = await (nft
@@ -162,7 +159,6 @@ function useFetchTargetAsset(nft?: boolean) {
                 receiveDataWrapper({ doesExist: !!asset, address: asset })
               )
             );
-            setArgs();
           }
         } catch (e) {
           if (!cancelled) {
@@ -177,7 +173,7 @@ function useFetchTargetAsset(nft?: boolean) {
         }
       }
       if (targetChain === CHAIN_ID_TERRA && originChain && originAsset) {
-        dispatch(setTargetAsset(undefined));
+        dispatch(setTargetAsset(fetchDataWrapper()));
         try {
           const lcd = new LCDClient(TERRA_HOST);
           const asset = await getForeignAssetTerra(
@@ -192,7 +188,6 @@ function useFetchTargetAsset(nft?: boolean) {
                 receiveDataWrapper({ doesExist: !!asset, address: asset })
               )
             );
-            setArgs();
           }
         } catch (e) {
           if (!cancelled) {
