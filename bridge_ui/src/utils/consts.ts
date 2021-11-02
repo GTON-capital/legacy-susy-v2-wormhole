@@ -7,6 +7,11 @@ import {
 } from "@certusone/wormhole-sdk";
 import { clusterApiUrl } from "@solana/web3.js";
 import { getAddress } from "ethers/lib/utils";
+import bscIcon from "../icons/bsc.svg";
+import ethIcon from "../icons/eth.svg";
+import polygonIcon from "../icons/polygon.svg";
+import solanaIcon from "../icons/solana.svg";
+import terraIcon from "../icons/terra.svg";
 
 export type Cluster = "devnet" | "testnet" | "mainnet";
 export const CLUSTER: Cluster =
@@ -25,6 +30,11 @@ export const CHAINS =
         {
           id: CHAIN_ID_ETH,
           name: "Ethereum",
+        },
+        {
+          id: CHAIN_ID_POLYGON,
+          name: "Polygon",
+          logo: polygonIcon,
         },
         {
           id: CHAIN_ID_SOLANA,
@@ -64,6 +74,15 @@ export const CHAINS =
           name: "Terra",
         },
       ];
+export const BETA_CHAINS: ChainId[] =
+  CLUSTER === "mainnet" ? [CHAIN_ID_POLYGON] : [];
+export const CHAINS_WITH_NFT_SUPPORT = CHAINS.filter(
+  ({ id }) =>
+    id === CHAIN_ID_BSC ||
+    id === CHAIN_ID_ETH ||
+    id === CHAIN_ID_POLYGON ||
+    id === CHAIN_ID_SOLANA
+);
 export type ChainsById = { [key in ChainId]: ChainInfo };
 export const CHAINS_BY_ID: ChainsById = CHAINS.reduce((obj, chain) => {
   obj[chain.id] = chain;

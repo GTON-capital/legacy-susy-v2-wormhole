@@ -9,6 +9,8 @@ import {
 import { Link as RouterLink } from "react-router-dom";
 import overview from "../../images/overview2.svg";
 import { COLORS } from "../../muiTheme";
+import { BETA_CHAINS, CHAINS } from "../../utils/consts";
+import HeaderText from "../HeaderText";
 
 const useStyles = makeStyles((theme) => ({
   centeredContainer: {
@@ -59,10 +61,47 @@ function Home() {
   return (
     <div>
       <Container maxWidth="md">
-        <div className={classes.centeredContainer}>
-          <Typography variant="h2" component="h1" className={classes.header}>
-            <span className={classes.linearGradient}>The Portal is Open</span>
-          </Typography>
+        <div className={classes.header}>
+          <HeaderText>The Portal is Open</HeaderText>
+        </div>
+      </Container>
+      <Container maxWidth="md">
+        <div className={classes.chainList}>
+          {CHAINS.filter(({ id }) => !BETA_CHAINS.includes(id)).map((chain) => (
+            <div key={chain.id} className={classes.chainCard}>
+              <div className={classes.chainLogoWrapper}>
+                <img
+                  src={chain.logo}
+                  alt={chain.name}
+                  className={classes.chainLogo}
+                />
+              </div>
+              <Typography
+                variant="body2"
+                component="div"
+                className={classes.chainName}
+              >
+                <div>{chain.name}</div>
+              </Typography>
+            </div>
+          ))}
+          <div className={classes.chainCard}>
+            <div className={classes.chainLogoWrapper}>
+              <img
+                src={polygonLogo}
+                alt="Polygon"
+                className={classes.chainLogo}
+              />
+              <Chip label="Coming soon" size="small" className={classes.chip} />
+            </div>
+            <Typography
+              variant="body2"
+              component="div"
+              className={classes.chainName}
+            >
+              <div>Polygon</div>
+            </Typography>
+          </div>
         </div>
       </Container>
       <Container maxWidth="sm">
