@@ -2,6 +2,7 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import { BigNumber, ethers } from "ethers";
 import { arrayify, zeroPad } from "ethers/lib/utils";
 import { TokenImplementation__factory } from "../ethers-contracts";
+import { importNftWasm } from "../solana/wasm";
 import { ChainId, CHAIN_ID_SOLANA } from "../utils";
 import { getIsWrappedAssetEth } from "./getIsWrappedAsset";
 

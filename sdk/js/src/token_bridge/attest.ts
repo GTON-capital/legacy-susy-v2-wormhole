@@ -6,9 +6,6 @@ import { Bridge__factory } from "../ethers-contracts";
 import { getBridgeFeeIx, ixFromRust } from "../solana";
 import { importTokenWasm } from "../solana/wasm";
 import { createNonce } from "../utils/createNonce";
-import { ConnectedWallet as TerraConnectedWallet } from "@terra-money/wallet-provider";
-import { MsgExecuteContract } from "@terra-money/terra.js";
-import { isNativeDenom } from "..";
 
 export async function attestFromEth(
   tokenBridgeAddress: string,

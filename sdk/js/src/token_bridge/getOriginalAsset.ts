@@ -3,6 +3,7 @@ import { LCDClient } from "@terra-money/terra.js";
 import { ethers } from "ethers";
 import { arrayify, zeroPad } from "ethers/lib/utils";
 import { TokenImplementation__factory } from "../ethers-contracts";
+import { importTokenWasm } from "../solana/wasm";
 import { buildNativeId, canonicalAddress, isNativeDenom } from "../terra";
 import { ChainId, CHAIN_ID_SOLANA, CHAIN_ID_TERRA } from "../utils";
 import { getIsWrappedAssetEth } from "./getIsWrappedAsset";
