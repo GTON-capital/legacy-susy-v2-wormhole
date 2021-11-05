@@ -7,7 +7,8 @@ import {
   TokenImplementation__factory,
 } from "../ethers-contracts";
 import { getBridgeFeeIx, ixFromRust } from "../solana";
-import { ChainId, CHAIN_ID_SOLANA, createNonce } from "../utils";
+import { importTokenWasm } from "../solana/wasm";
+import { ChainId, CHAIN_ID_SOLANA, createNonce, WSOL_ADDRESS } from "../utils";
 
 export async function getAllowanceEth(
   tokenBridgeAddress: string,
@@ -95,12 +96,71 @@ export async function transferFromTerra(
           expires: {
             never: {},
           },
-        },
-      },
-      { uluna: 10000 }
-    ),
-    new MsgExecuteContract(
-      walletAddress,
+          {}
+        ),
+      ];
+}
+
+export async function transferNativeSol(
+  connection: Connection,
+  bridgeAddress: string,
+  tokenBridgeAddress: string,
+  payerAddress: string,
+  amount: BigInt,
+  targetAddress: Uint8Array,
+  targetChain: ChainId
+) {
+  //https://github.com/solana-labs/solana-program-library/blob/master/token/js/client/token.js
+  const rentBalance = await Token.getMinBalanceRentForExemptAccount(connection);
+  const mintPublicKey = new PublicKey(WSOL_ADDRESS);
+  const payerPublicKey = new PublicKey(payerAddress);
+  const ancillaryKeypair = Keypair.generate();
+
+  //This will create a temporary account where the wSOL will be created.
+  const createAncillaryAccountIx = SystemProgram.createAccount({
+    fromPubkey: payerPublicKey,
+    newAccountPubkey: ancillaryKeypair.publicKey,
+    lamports: rentBalance, //spl token accounts need rent exemption
+    space: AccountLayout.span,
+    programId: TOKEN_PROGRAM_ID,
+  });
+
+  //Send in the amount of SOL which we want converted to wSOL
+  const initialBalanceTransferIx = SystemProgram.transfer({
+    fromPubkey: payerPublicKey,
+    lamports: Number(amount),
+    toPubkey: ancillaryKeypair.publicKey,
+  });
+  //Initialize the account as a WSOL account, with the original payerAddress as owner
+  const initAccountIx = await Token.createInitAccountInstruction(
+    TOKEN_PROGRAM_ID,
+    mintPublicKey,
+    ancillaryKeypair.publicKey,
+    payerPublicKey
+  );
+
+  //Normal approve & transfer instructions, except that the wSOL is sent from the ancillary account.
+  const { transfer_native_ix, approval_authority_address } =
+    await importTokenWasm();
+  const nonce = createNonce().readUInt32LE(0);
+  const fee = BigInt(0); // for now, this won't do anything, we may add later
+  const transferIx = await getBridgeFeeIx(
+    connection,
+    bridgeAddress,
+    payerAddress
+  );
+  const approvalIx = Token.createApproveInstruction(
+    TOKEN_PROGRAM_ID,
+    ancillaryKeypair.publicKey,
+    new PublicKey(approval_authority_address(tokenBridgeAddress)),
+    payerPublicKey, //owner
+    [],
+    new u64(amount.toString(16), 16)
+  );
+  let messageKey = Keypair.generate();
+
+  const ix = ixFromRust(
+    transfer_native_ix(
       tokenBridgeAddress,
       {
         initiate_transfer: {
@@ -141,7 +201,7 @@ export async function transferFromSolana(
     transfer_native_ix,
     transfer_wrapped_ix,
     approval_authority_address,
-  } = await import("../solana/token/token_bridge");
+  } = await importTokenWasm();
   const approvalIx = Token.createApproveInstruction(
     TOKEN_PROGRAM_ID,
     new PublicKey(fromAddress),

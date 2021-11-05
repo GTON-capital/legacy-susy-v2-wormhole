@@ -1,6 +1,32 @@
 # Changelog
 
-## Unreleased
+## 0.0.9
+
+### Added
+
+Integration tests
+
+NodeJS target wasm
+
+Ability to update attestations on EVM chains & Terra.
+
+nativeToHexString utility function for converting native addresses into VAA hex format.
+
+## 0.0.8
+
+### Added
+
+Polygon ChainId
+
+## 0.0.7
+
+### Changed
+
+Changed function signature of attestFromTerra to be consistent with other terra functions
+
+Removed hardcoded fees on terra transactions
+
+## 0.0.6
 
 ### Changed
 
