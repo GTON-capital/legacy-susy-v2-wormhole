@@ -7,7 +7,6 @@ import {
 } from "../../store/selectors";
 import { CHAINS_BY_ID } from "../../utils/consts";
 import SmartAddress from "../SmartAddress";
-import TokenBlacklistWarning from "./TokenBlacklistWarning";
 
 const useStyles = makeStyles((theme) => ({
   description: {
@@ -46,11 +45,6 @@ export default function SourcePreview() {
       >
         {explainerContent}
       </Typography>
-      <TokenBlacklistWarning
-        sourceChain={sourceChain}
-        tokenAddress={sourceParsedTokenAccount?.mintKey}
-        symbol={sourceParsedTokenAccount?.symbol}
-      />
     </>
   );
 }

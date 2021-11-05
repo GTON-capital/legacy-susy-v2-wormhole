@@ -25,7 +25,6 @@ import KeyAndBalance from "../KeyAndBalance";
 import LowBalanceWarning from "../LowBalanceWarning";
 import StepDescription from "../StepDescription";
 import { TokenSelector } from "../TokenSelectors/SourceTokenSelector";
-import TokenBlacklistWarning from "./TokenBlacklistWarning";
 
 const useStyles = makeStyles((theme) => ({
   transferField: {
@@ -122,11 +121,6 @@ function Source({
         </Button>
       ) : (
         <>
-          <TokenBlacklistWarning
-            sourceChain={sourceChain}
-            tokenAddress={parsedTokenAccount?.mintKey}
-            symbol={parsedTokenAccount?.symbol}
-          />
           <LowBalanceWarning chainId={sourceChain} />
           {hasParsedTokenAccount ? (
             <TextField
