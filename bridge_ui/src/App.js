@@ -24,6 +24,8 @@ import NFTOriginVerifier from "./components/NFTOriginVerifier";
 import Transfer from "./components/Transfer";
 import wormholeLogo from "./icons/wormhole.svg";
 import { CLUSTER } from "./utils/consts";
+import Stats from "./components/Stats";
+import TokenOriginVerifier from "./components/TokenOriginVerifier";
 
 const useStyles = makeStyles((theme) => ({
   appBar: {
@@ -153,8 +155,8 @@ function App() {
           <Route exact path="/nft-origin-verifier">
             <NFTOriginVerifier />
           </Route>
-          <Route exact path="/transfer">
-            <Transfer />
+          <Route exact path="/token-origin-verifier">
+            <TokenOriginVerifier />
           </Route>
           <Route exact path="/register">
             <Attest />

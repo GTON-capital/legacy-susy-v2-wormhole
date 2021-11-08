@@ -1,6 +1,12 @@
-import { CHAIN_ID_SOLANA } from "@certusone/wormhole-sdk";
-import { Button, makeStyles, MenuItem, TextField } from "@material-ui/core";
-import { Restore } from "@material-ui/icons";
+import {
+  CHAIN_ID_BSC,
+  CHAIN_ID_ETH,
+  CHAIN_ID_SOLANA,
+} from "@certusone/wormhole-sdk";
+import { getAddress } from "@ethersproject/address";
+import { Button, makeStyles } from "@material-ui/core";
+import { Link } from "react-router-dom";
+import { VerifiedUser } from "@material-ui/icons";
 import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useHistory } from "react-router";
@@ -79,16 +85,19 @@ function Source({
     <>
       <StepDescription>
         <div style={{ display: "flex", alignItems: "center" }}>
-          Select tokens to send through the Wormhole Token Bridge.
+          Select tokens to send through the Wormhole Bridge.
           <div style={{ flexGrow: 1 }} />
-          <Button
-            onClick={() => setIsRecoveryOpen(true)}
-            size="small"
-            variant="outlined"
-            endIcon={<Restore />}
-          >
-            Perform Recovery
-          </Button>
+          <div>
+            <Button
+              component={Link}
+              to="/token-origin-verifier"
+              size="small"
+              variant="outlined"
+              endIcon={<VerifiedUser />}
+            >
+              Token Origin Verifier
+            </Button>
+          </div>
         </div>
       </StepDescription>
       <TextField

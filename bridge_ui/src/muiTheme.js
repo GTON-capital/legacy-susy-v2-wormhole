@@ -36,7 +36,7 @@ export const theme = responsiveFontSizes(
     typography: {
       fontFamily: "'Sora', sans-serif",
       h2: {
-        fontWeight: "700",
+        fontWeight: "200",
       },
       h4: {
         fontWeight: "500",

@@ -228,11 +228,9 @@ export default function NFTOriginVerifier() {
   return (
     <div>
       <Container maxWidth="md">
-        <div className={classes.centeredContainer}>
-          <Typography variant="h2" component="h1" className={classes.header}>
-            <span className={classes.linearGradient}>NFT Origin Verifier</span>
-          </Typography>
-        </div>
+        <HeaderText white small>
+          NFT Origin Verifier
+        </HeaderText>
       </Container>
       <Container maxWidth="sm">
         <Card className={classes.mainCard}>
