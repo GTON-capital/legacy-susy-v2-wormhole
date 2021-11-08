@@ -91,7 +91,6 @@ function PrimaryAssetInfomation({
               address={originAsset}
               chainId={originChain}
               symbol={metadata.data?.get(originAsset)?.symbol}
-              tokenName={metadata.data?.get(originAsset)?.tokenName}
             />
           </Typography>
         </div>
@@ -133,10 +132,6 @@ function SecondaryAssetInformation({
             metadata.data?.get(originAssetInfo.originAddress || "")?.symbol ||
             undefined
           }
-          tokenName={
-            metadata.data?.get(originAssetInfo.originAddress || "")
-              ?.tokenName || undefined
-          }
         />
       </div>
     </div>
@@ -163,10 +158,6 @@ function SecondaryAssetInformation({
           address={foreignAssetInfo.address || undefined}
           symbol={
             metadata.data?.get(foreignAssetInfo.address || "")?.symbol ||
-            undefined
-          }
-          tokenName={
-            metadata.data?.get(foreignAssetInfo.address || "")?.tokenName ||
             undefined
           }
         />

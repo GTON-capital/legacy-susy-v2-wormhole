@@ -1,4 +1,5 @@
 import {
+  ChainId,
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
   getForeignAssetEth,
@@ -14,7 +15,7 @@ import { arrayify } from "@ethersproject/bytes";
 import { Connection } from "@solana/web3.js";
 import { LCDClient } from "@terra-money/terra.js";
 import { ethers } from "ethers";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useEthereumProvider } from "../contexts/EthereumProviderContext";
 import {
@@ -75,10 +76,47 @@ function useFetchTargetAsset(nft?: boolean) {
   const isRecovery = useSelector(
     nft ? selectNFTIsRecovery : selectTransferIsRecovery
   );
+  const [lastSuccessfulArgs, setLastSuccessfulArgs] = useState<{
+    isSourceAssetWormholeWrapped: boolean | undefined;
+    originChain: ChainId | undefined;
+    originAsset: string | undefined;
+    targetChain: ChainId;
+    nft?: boolean;
+    tokenId?: string;
+  } | null>(null);
+  const argsMatchLastSuccess =
+    !!lastSuccessfulArgs &&
+    lastSuccessfulArgs.isSourceAssetWormholeWrapped ===
+      isSourceAssetWormholeWrapped &&
+    lastSuccessfulArgs.originChain === originChain &&
+    lastSuccessfulArgs.originAsset === originAsset &&
+    lastSuccessfulArgs.targetChain === targetChain &&
+    lastSuccessfulArgs.nft === nft &&
+    lastSuccessfulArgs.tokenId === tokenId;
+  const setArgs = useCallback(
+    () =>
+      setLastSuccessfulArgs({
+        isSourceAssetWormholeWrapped,
+        originChain,
+        originAsset,
+        targetChain,
+        nft,
+        tokenId,
+      }),
+    [
+      isSourceAssetWormholeWrapped,
+      originChain,
+      originAsset,
+      targetChain,
+      nft,
+      tokenId,
+    ]
+  );
   useEffect(() => {
-    if (isRecovery) {
+    if (isRecovery || argsMatchLastSuccess) {
       return;
     }
+    setLastSuccessfulArgs(null);
     if (isSourceAssetWormholeWrapped && originChain === targetChain) {
       dispatch(
         setTargetAsset(
@@ -88,6 +126,7 @@ function useFetchTargetAsset(nft?: boolean) {
           })
         )
       );
+      setArgs();
       return;
     }
     let cancelled = false;
@@ -123,6 +162,7 @@ function useFetchTargetAsset(nft?: boolean) {
                 })
               )
             );
+            setArgs();
           }
         } catch (e) {
           if (!cancelled) {
@@ -159,6 +199,7 @@ function useFetchTargetAsset(nft?: boolean) {
                 receiveDataWrapper({ doesExist: !!asset, address: asset })
               )
             );
+            setArgs();
           }
         } catch (e) {
           if (!cancelled) {
@@ -188,6 +229,7 @@ function useFetchTargetAsset(nft?: boolean) {
                 receiveDataWrapper({ doesExist: !!asset, address: asset })
               )
             );
+            setArgs();
           }
         } catch (e) {
           if (!cancelled) {
@@ -217,6 +259,8 @@ function useFetchTargetAsset(nft?: boolean) {
     setTargetAsset,
     tokenId,
     hasCorrectEvmNetwork,
+    argsMatchLastSuccess,
+    setArgs,
   ]);
 }
 

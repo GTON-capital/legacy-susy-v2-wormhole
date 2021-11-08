@@ -83,18 +83,20 @@ function useIsWalletReady(
     }
     if (isEVMChain(chainId) && hasEthInfo && signerAddress) {
       if (hasCorrectEvmNetwork) {
-        return createWalletStatus(true, undefined, signerAddress);
+        return createWalletStatus(
+          true,
+          undefined,
+          forceNetworkSwitch,
+          signerAddress
+        );
       } else {
-        if (provider && correctEvmNetwork) {
-          try {
-            provider.send("wallet_switchEthereumChain", [
-              { chainId: hexStripZeros(hexlify(correctEvmNetwork)) },
-            ]);
-          } catch (e) {}
+        if (provider && correctEvmNetwork && autoSwitch) {
+          forceNetworkSwitch();
         }
         return createWalletStatus(
           false,
           `Wallet is not connected to ${CLUSTER}. Expected Chain ID: ${correctEvmNetwork}`,
+          forceNetworkSwitch,
           undefined
         );
       }
