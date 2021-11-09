@@ -1,12 +1,17 @@
+```
 git clone https://github.com/SuSy-One/susy-v2
 cd susy-v2/
 make node
 cd build/bin
+```
 
+Генерируем ключ
+```
 sudo ./guardiand keygen --desc "Testnet key foo" my.key
-
 sudo cat my.key
-sudo chmod 666 my.key
+```
+
+видим что-то типа этого
 
 ```
 -----BEGIN WORMHOLE GUARDIAN PRIVATE KEY-----
@@ -18,7 +23,14 @@ CiAqR26+GpzYSynskJ7IBDcAvgUVTv17UVfuRW8NhwsQ1w==
 -----END WORMHOLE GUARDIAN PRIVATE KEY-----
 ```
 
+выставляем права на файл ключа, например
+
+```
+sudo chmod 666 my.key
+```
+
 создаем файл guardiand.yaml с содержимым
+
 ```
 evm_watchers:
   - name: ethWatcher
@@ -36,6 +48,7 @@ evm_watchers:
 ```
 
 запускаем
+
 ```
 ./guardiand node \
 --bootstrap \
@@ -65,13 +78,17 @@ wss://api.devnet.solana.com \
 ```
 
 
-нода при первом запуске упадет
-в логе будут следующие строки
+нода при первом запуске упадет, в логе будут следующие строки
+
+```
 Loaded guardian key     {"address": "0xB26c946F0558dc09B63198c6c83b7AE7b0dEc13e"}
 Found existing node key {"path": "/home/alex/experience/wormhole/node.key", "peerID": "12D3KooWEKf9fqxWusuQmJpC564ZGrFbM2yc51Fmqk4HALYPbFvZ"}
+```
 
 guardian key нужно добавить в контракт как нового валидатора
+
 node key нужно записать в строку bootstrap вида /dns4/127.0.0.1/udp/8999/quic/p2p/12D3KooWEKf9fqxWusuQmJpC564ZGrFbM2yc51Fmqk4HALYPbFvZ 
+
 пиры указываются через запятую.
 
 строку пира разослать остальным валидаторам, чтобы они добавили у себя
