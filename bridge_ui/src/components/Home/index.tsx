@@ -93,7 +93,7 @@ function Home() {
           </Typography>
           <Typography variant="h6" className={classes.description}>
             The Wormhole Token Bridge allows you to seamlessly transfer
-            tokenized assets across Solana and Ethereum.
+            tokenized assets across Solana, Ethereum, BSC, Terra, and Polygon.
           </Typography>
           <Button
             component={RouterLink}
