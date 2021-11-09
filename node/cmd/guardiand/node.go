@@ -318,12 +318,12 @@ func runNode(cmd *cobra.Command, args []string) {
 	if *dataDir == "" {
 		logger.Fatal("Please specify --dataDir")
 	}
-	// 	if *ethRPC == "" {
-	// 		logger.Fatal("Please specify --ethRPC")
-	// 	}
-	// 	if *ethContract == "" {
-	// 		logger.Fatal("Please specify --ethContract")
-	// 	}
+// 	if *ethRPC == "" {
+// 		logger.Fatal("Please specify --ethRPC")
+// 	}
+// 	if *ethContract == "" {
+// 		logger.Fatal("Please specify --ethContract")
+// 	}
 	// if *bscRPC == "" {
 	// 	logger.Fatal("Please specify --bscRPC")
 	// }
