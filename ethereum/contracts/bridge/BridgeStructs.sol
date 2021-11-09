@@ -63,4 +63,18 @@ contract BridgeStructs {
         // Address of the new contract
         bytes32 newContract;
     }
+
+    struct GenericAction {
+        // orig chain id 
+        uint8 originChainId;
+
+        // dst chain type (0 = EVM, 1 = Sol, 2 = Polka, ...)
+        uint8 dstChainType;
+        
+        // dst chain id (for EVMs)
+        uint8 dstChainId;
+
+        // custom payload, len = bytes300
+        bytes payload;
+    }
 }

@@ -1,0 +1,9 @@
+
+message Dapp {
+
+  enum ID {
+    SUSY = 0;
+    OG = 1;
+    CANDY = 2;
+  }
+}
