@@ -59,14 +59,12 @@ contract BridgeGovernance is BridgeGetters, BridgeSetters, ERC1967Upgrade {
         if (!valid) {
             return (vm, valid, reason);
         }
-
         if (vm.emitterChainId != governanceChainId()) {
             return (vm, false, "wrong governance chain");
         }
         if (vm.emitterAddress != governanceContract()) {
             return (vm, false, "wrong governance contract");
         }
-
         if (governanceActionIsConsumed(vm.hash)) {
             return (vm, false, "governance action already consumed");
         }

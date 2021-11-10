@@ -1,6 +1,7 @@
 require('dotenv').config({ path: "../.env" });
 
-const TokenBridge = artifacts.require("TokenBridge");
+// const TokenBridge = artifacts.require("TokenBridge");
+const SuSyBridge = artifacts.require("SuSyBridge");
 const BridgeImplementation = artifacts.require("BridgeImplementation");
 const BridgeSetup = artifacts.require("BridgeSetup");
 const TokenImplementation = artifacts.require("TokenImplementation");
@@ -36,5 +37,5 @@ module.exports = async function (deployer) {
     ).encodeABI();
 
     // deploy proxy
-    await deployer.deploy(TokenBridge, BridgeSetup.address, initData, buildDeployerProps(deployer));
+    await deployer.deploy(SuSyBridge, BridgeSetup.address, initData, buildDeployerProps(deployer));
 };

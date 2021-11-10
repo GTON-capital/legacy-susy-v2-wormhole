@@ -18,9 +18,14 @@
   },
   "scripts": {
     "build": "truffle compile",
+    "compile": "truffle compile",
     "test": "mkdir -p build/contracts && cp node_modules/@openzeppelin/contracts/build/contracts/* build/contracts/ && truffle test",
-    "migrate": "mkdir -p build/contracts && cp node_modules/@openzeppelin/contracts/build/contracts/* build/contracts/ && truffle migrate --network polygon",
-    "verify": "truffle"
+    "migrate:ropsten": "/bin/sh migrate.sh && truffle migrate --reset --network ropsten",
+    "migrate:rinkeby": "/bin/sh migrate.sh && truffle migrate --reset --network rinkeby",
+    "migrate:fantom": "/bin/sh migrate.sh && truffle migrate --network fantom",
+    "migrate:polygon": "/bin/sh migrate.sh && truffle migrate --network polygon",
+    "migrate:binance": "/bin/sh migrate.sh && truffle migrate --network binance",
+    "verify": "truffle run verify"
   },
   "author": "",
   "license": "ISC",

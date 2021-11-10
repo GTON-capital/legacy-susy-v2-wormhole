@@ -90,11 +90,13 @@ contract SuSyBridge is BridgeGovernance {
     }
 
     function lock(
-      uint8 chainType,
-      uint8 chainId,
-      bytes8[] calldata customPayload
-    ) public payable {
-
+        uint8 dstChainType,
+        uint8 dstChainId,
+        uint32 nonce,
+        bytes calldata payload
+    ) public payable returns (uint64 sequence) {
+        uint16 currentChain = chainId();
+        sequence = logGenericAction(uint8(currentChain), dstChainType, dstChainId, payload, msg.value, nonce);
     }
 
     // Initiate a Transfer
@@ -149,9 +151,7 @@ contract SuSyBridge is BridgeGovernance {
         uint256 callValue,
         uint32 nonce
     ) internal returns (uint64 sequence) {
-      require(fee <= amount, "fee exceeds amount");
-
-      BridgeStructs.GenericAction memory transfer = BridgeStructs.GenericAction({
+      BridgeStructs.GenericAction memory action = BridgeStructs.GenericAction({
           originChainId: originChainId,
           dstChainType: chainType,
           dstChainId: chainId,
@@ -370,7 +370,10 @@ contract SuSyBridge is BridgeGovernance {
 
     function encodeGenericAction(BridgeStructs.GenericAction memory action) public pure returns (bytes memory encoded) {
         encoded = abi.encodePacked(
-            action.originChain,
+            action.originChainId,
+            action.dstChainType,
+            action.dstChainId,
+            action.payload
         );
     }
 
