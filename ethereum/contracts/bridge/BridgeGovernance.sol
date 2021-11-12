@@ -91,7 +91,6 @@ contract BridgeGovernance is BridgeGetters, BridgeSetters, ERC1967Upgrade {
         uint index = 0;
 
         // governance header
-
         chain.module = encoded.toBytes32(index);
         index += 32;
         require(chain.module == module, "invalid RegisterChain: wrong module");
@@ -104,7 +103,6 @@ contract BridgeGovernance is BridgeGetters, BridgeSetters, ERC1967Upgrade {
         index += 2;
 
         // payload
-
         chain.emitterChainID = encoded.toUint16(index);
         index += 2;
 
@@ -118,7 +116,6 @@ contract BridgeGovernance is BridgeGetters, BridgeSetters, ERC1967Upgrade {
         uint index = 0;
 
         // governance header
-
         chain.module = encoded.toBytes32(index);
         index += 32;
         require(chain.module == module, "invalid UpgradeContract: wrong module");

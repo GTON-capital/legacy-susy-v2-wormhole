@@ -4,14 +4,32 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/hex"
+	"testing"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 func TestSerializeDeserialize(t *testing.T) {
+	module := make([]byte, 32)
+	copy(module, []byte("SuSyBridge"))
+
+	emmiterAddress := make([]byte, 32)
+	// copy(emmiterAddress, []byte("SuSyBridge"))
+
+	payload := BridgeStructs_RegisterChain {
+		// module: make([]byte, 0),
+		module: module,
+		action: uint8(1),
+		chainId: 1,
+		emitterChainID: 4,
+		emitterAddress: emmiterAddress,
+	}
+
+	bytesPayload, _ := SerializeData(payload)
+
 	tests := []struct {
 		name string
 		vaa  *VAA
@@ -33,7 +51,8 @@ func TestSerializeDeserialize(t *testing.T) {
 				ConsistencyLevel: 5,
 				EmitterChain:     8,
 				EmitterAddress:   Address{1, 2, 3},
-				Payload:          []byte("abc"),
+				// Payload:          []byte("abc"),
+				Payload:          bytesPayload,
 			},
 		},
 	}
