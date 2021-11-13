@@ -3,7 +3,7 @@ const elliptic = require('elliptic');
 const BigNumber = require('bignumber.js');
 
 const Wormhole = artifacts.require("Wormhole");
-const TokenBridge = artifacts.require("TokenBridge");
+const TokenBridge = artifacts.require("SuSyBridge");
 const BridgeImplementation = artifacts.require("BridgeImplementation");
 const TokenImplementation = artifacts.require("TokenImplementation");
 const MockBridgeImplementation = artifacts.require("MockBridgeImplementation");
@@ -28,7 +28,7 @@ contract("Bridge", function () {
     const testBridgedAssetChain = "0001";
     const testBridgedAssetAddress = "000000000000000000000000b7a2211e8165943192ad04f5dd21bedc29ff003e";
 
-
+    
     it("should be initialized with the correct signers and values", async function () {
         const initialized = new web3.eth.Contract(BridgeImplementationFullABI, TokenBridge.address);
 
