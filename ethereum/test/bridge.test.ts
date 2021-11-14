@@ -1,6 +1,16 @@
 import jsonfile from "jsonfile";
 import elliptic from "elliptic";
-import BigNumber from "big.js";
+import Big from "big.js";
+
+class BigNumber extends Big {
+  toString(dp?: number) {
+    if (dp === undefined) {
+      return super.toString();
+    }
+
+    return this.toNumber().toString(dp!);
+  }
+}
 
 import artifacts, { web3, contract, assert } from "truffle";
 
@@ -440,9 +450,9 @@ contract("Bridge", function() {
         from: accounts[0],
         gasLimit: 2000000,
       });
-    } catch (error) {
+    } catch (err) {
       assert.equal(
-        error.message,
+        (err as Error).message,
         "Returned error: VM Exception while processing transaction: revert current metadata is up to date"
       );
       failed = true;
@@ -776,7 +786,7 @@ contract("Bridge", function() {
 
     assert.equal(
       accountBalanceAfter.toString(10),
-      new BigNumber(amount).minus(fee).toString(10)
+      new BigNumber(new BigNumber(amount).minus(fee)).toString(10)
     );
     assert.equal(senderBalanceAfter.toString(10), fee);
     assert.equal(totalSupplyAfter.toString(10), amount);
@@ -1032,10 +1042,10 @@ contract("Bridge", function() {
     const feeRecipientBalanceAfter = await web3.eth.getBalance(accounts[0]);
 
     assert.equal(
-      new BigNumber(accountBalanceAfter)
-        .minus(accountBalanceBefore)
-        .toString(10),
-      new BigNumber(amount).minus(fee).toString(10)
+      new BigNumber(
+        new BigNumber(accountBalanceAfter).minus(accountBalanceBefore)
+      ).toString(10),
+      new BigNumber(new BigNumber(amount).minus(fee)).toString(10)
     );
     assert.ok(
       new BigNumber(feeRecipientBalanceAfter).gt(feeRecipientBalanceBefore)
@@ -1089,7 +1099,9 @@ contract("Bridge", function() {
       await initialized.methods
         .transferTokens(
           TokenImplementation.address,
-          new BigNumber(supply).minus(firstTransfer).toString(10),
+          new BigNumber(new BigNumber(supply).minus(firstTransfer)).toString(
+            10
+          ),
           "10",
           "0x000000000000000000000000b7a2211e8165943192ad04f5dd21bedc29ff003e",
           "0",
@@ -1102,6 +1114,7 @@ contract("Bridge", function() {
         });
     } catch (error) {
       assert.equal(
+        // @ts-ignore
         error.message,
         "Returned error: VM Exception while processing transaction: revert transfer exceeds max outstanding bridged token amount"
       );
@@ -1113,15 +1126,15 @@ contract("Bridge", function() {
 });
 
 const signAndEncodeVM = async function(
-  timestamp,
-  nonce,
-  emitterChainId,
-  emitterAddress,
-  sequence,
-  data,
-  signers,
-  guardianSetIndex,
-  consistencyLevel
+  timestamp: number,
+  nonce: number,
+  emitterChainId: string,
+  emitterAddress: string,
+  sequence: number,
+  data: string,
+  signers: string[],
+  guardianSetIndex: number,
+  consistencyLevel: number
 ) {
   const body = [
     web3.eth.abi.encodeParameter("uint32", timestamp).substring(2 + (64 - 8)),
@@ -1176,7 +1189,7 @@ const signAndEncodeVM = async function(
   return vm;
 };
 
-function zeroPadBytes(value, length) {
+function zeroPadBytes(value: string, length: number) {
   while (value.length < 2 * length) {
     value = "0" + value;
   }
