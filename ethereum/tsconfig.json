@@ -11,6 +11,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["./test"],
+  "include": ["./tests"],
   "files": ["./hardhat.config.ts"]
 }
