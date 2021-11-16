@@ -9,7 +9,7 @@ import "hardhat-abi-exporter";
 export default {
   networks: {
     localhost: {
-      url: "http://127.0.0.1:8545",
+      url: "http://127.0.0.1:7545",
     },
     avax: {
       url: "https://api.avax.network/ext/bc/C/rpc",

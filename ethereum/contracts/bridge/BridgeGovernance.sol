@@ -33,10 +33,10 @@ contract BridgeGovernance is BridgeGetters, BridgeSetters, ERC1967Upgrade {
 
         BridgeStructs.RegisterChain memory chain = parseRegisterChain(vm.payload);
 
-        require(chain.chainId == chainId() || chain.chainId == 0, "invalid chain id");
-        require(bridgeContracts(chain.emitterChainID) == bytes32(0), "chain already registered");
+        // require(chain.chainId == chainId() || chain.chainId == 0, "invalid chain id");
+        // require(bridgeContracts(chain.emitterChainID) == bytes32(0), "chain already registered");
 
-        setBridgeImplementation(chain.emitterChainID, chain.emitterAddress);
+        // setBridgeImplementation(chain.emitterChainID, chain.emitterAddress);
     }
 
     // Execute a UpgradeContract governance message
