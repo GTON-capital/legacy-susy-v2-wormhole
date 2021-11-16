@@ -5,8 +5,8 @@ import BigNumber from "big.js";
 
 import { expect } from "../shared/expect";
 
-const BridgeSetupArtifact = artifacts.readArtifactSync("BridgeSetup");
-const SetupArtifact = artifacts.readArtifactSync("Setup");
+// const BridgeSetupArtifact = artifacts.readArtifactSync("BridgeSetup");
+// const SetupArtifact = artifacts.readArtifactSync("Setup");
 
 // common
 import { TestERC20 } from "../typechain/TestERC20";
@@ -171,30 +171,33 @@ describe("Tests: SuSyBridge", () => {
     deployedContracts.setupContract = (await setupFactory.deploy()) as Setup;
     deployedContracts.implementationContract = (await implFactory.deploy()) as Implementation;
 
-    // const initDataEncoded_Wormhole = await deployedContracts.setupContract.setup(
-    //   deployedContracts.implementationContract.address,
-    //   guardianSet.addressList,
-    //   testProps.chainId, // testForeignChainId,
-    //   testProps.governanceChainId, // testGovernanceChainId,
-    //   testProps.governanceContract // testGovernanceContract
-    // );
-    const setup = new web3.eth.Contract(SetupArtifact.abi, deployedContracts.setupContract.address);
+    const setupTx = await deployedContracts.setupContract.setup(
+      deployedContracts.implementationContract.address,
+      guardianSet.addressList,
+      testProps.chainId, // testForeignChainId,
+      testProps.governanceChainId, // testGovernanceChainId,
+      testProps.governanceContract // testGovernanceContract
+    );
 
-    const initDataEncoded_Wormhole = setup.methods
-      .setup(
-        deployedContracts.implementationContract.address,
-        guardianSet.addressList,
-        testProps.chainId, // testForeignChainId,
-        testProps.governanceChainId, // testGovernanceChainId,
-        testProps.governanceContract // testGovernanceContract
-      )
-      .encodeABI();
+    console.log({ setupTx });
 
-    console.log({ initDataEncoded_Wormhole });
+    // const setup = new web3.eth.Contract(SetupArtifact.abi, deployedContracts.setupContract.address);
+
+    // const setupTxAbiEncoded = setup.methods
+    //   .setup(
+    //     deployedContracts.implementationContract.address,
+    //     guardianSet.addressList,
+    //     testProps.chainId, // testForeignChainId,
+    //     testProps.governanceChainId, // testGovernanceChainId,
+    //     testProps.governanceContract // testGovernanceContract
+    //   )
+    //   .encodeABI();
+
+    // console.log({ setupTxAbiEncoded });
 
     deployedContracts.wormholeContract = (await wormholeFactory.deploy(
       deployedContracts.setupContract.address,
-      initDataEncoded_Wormhole
+      setupTx.data
     )) as Wormhole;
 
     /**
@@ -209,52 +212,32 @@ describe("Tests: SuSyBridge", () => {
     deployedContracts.bridgeSetup = (await bridgeSetupFactory.deploy()) as BridgeSetup;
     deployedContracts.bridgeImplementation = (await bridgeImplFactory.deploy()) as BridgeImplementation;
 
-    // encode initialisation data
-    // const initDataEncoded_SuSyTokenBridge = await deployedContracts.bridgeSetup.setup(
-    //   deployedContracts.bridgeImplementation.address,
-    //   testProps.bridgeChainId,
-    //   deployedContracts.wormholeContract.address,
-    //   testProps.bridgeChainId, // testGovernanceChainId,
-    //   testProps.bridgeGovernanceContract, // testGovernanceContract,
-    //   deployedContracts.tokenImplementation.address,
-    //   deployedContracts.WETH.address
-    // );
+    const bridgeSetupTx = await deployedContracts.bridgeSetup.setup(
+      deployedContracts.bridgeImplementation.address,
+      testProps.chainId,
+      deployedContracts.wormholeContract.address,
+      testProps.bridgeChainId, // testGovernanceChainId,
+      testProps.bridgeGovernanceContract, // testGovernanceContract,
+      deployedContracts.tokenImplementation.address,
+      deployedContracts.WETH.address
+    );
+    console.log({ bridgeSetupTx });
 
-    console.log({
-      args: [
-        deployedContracts.bridgeImplementation.address,
-        testProps.chainId,
-        deployedContracts.wormholeContract.address,
-        testProps.bridgeChainId, // testGovernanceChainId,
-        testProps.bridgeGovernanceContract, // testGovernanceContract,
-        deployedContracts.tokenImplementation.address,
-        deployedContracts.WETH.address,
-      ],
-    });
-
-    const setupWeb3 = new web3.eth.Contract(BridgeSetupArtifact.abi, deployedContracts.bridgeSetup.address);
-    const initDataEncoded_SuSyTokenBridge_2 = setupWeb3.methods
-      .setup(
-        deployedContracts.bridgeImplementation.address,
-        testProps.chainId,
-        deployedContracts.wormholeContract.address,
-        testProps.bridgeChainId, // testGovernanceChainId,
-        testProps.bridgeGovernanceContract, // testGovernanceContract,
-        deployedContracts.tokenImplementation.address,
-        deployedContracts.WETH.address
-      )
-      .encodeABI();
-
-    console.log({ initDataEncoded_SuSyTokenBridge_2 });
     const susyTokenBridgeFactory = (await ethers.getContractFactory("SuSyTokenBridge")) as SuSyTokenBridge__factory;
 
     deployedContracts.susyTokenBridge = await susyTokenBridgeFactory.deploy(
       deployedContracts.bridgeSetup.address,
-      initDataEncoded_SuSyTokenBridge_2
+      bridgeSetupTx.data
     );
 
     console.log("wh: provided addr", { wormhole: deployedContracts.wormholeContract.address });
 
+    // console.log("wh: got addr", { wormhole: await deployedContracts.bridgeImplementation.wormhole() });
+    console.log("wh: got addr", {
+      wormhole: await bridgeImplFactory.attach(deployedContracts.susyTokenBridge.address).wormhole(),
+    });
+
+    deployedContracts.bridgeImplementation = await bridgeImplFactory.attach(deployedContracts.susyTokenBridge.address);
     // console.log("wh: got addr", { wormhole: await deployedContracts.susyTokenBridge!.wormhole() });
     // console.log("impl", await deployedContracts.susyTokenBridge.resolvedAddress);
   });
@@ -317,10 +300,10 @@ describe("Tests: SuSyBridge", () => {
 
     console.log({ wormhole: await bridgeImplDeployed.wormhole() });
     // console.log({ wormhole: deployedContracts.bridgeSetup? });
-    // await bridgeImplDeployed.registerChain("0x" + vm, {
-    //   from: guardianSet.addressList[0],
-    //   gasLimit: 2000000,
-    // });
+    await bridgeImplDeployed.registerChain("0x" + vm, {
+      from: guardianSet.addressList[0],
+      gasLimit: 2000000,
+    });
 
     let after = await bridgeImplDeployed.bridgeContracts(testProps.bridgeChainId);
 
