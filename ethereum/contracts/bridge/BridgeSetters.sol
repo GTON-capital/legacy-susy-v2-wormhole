@@ -54,4 +54,4 @@ contract BridgeSetters is BridgeState {
     function setOutstandingBridged(address token, uint256 outstanding) internal {
         _state.outstandingBridged[token] = outstanding;
     }
-}
+} 
