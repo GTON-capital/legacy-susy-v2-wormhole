@@ -84,7 +84,7 @@ describe("Tests: SuSyBridge", () => {
     }
 
     get privateKeysList(): string[] {
-      return this.guardians.map((x) => x.privateKey);
+      return this.guardians.map((x) => x.privateKey.slice(2));
     }
   }
 
@@ -103,12 +103,12 @@ describe("Tests: SuSyBridge", () => {
   // BRIDGE_INIT_WETH=0xDDb64fE46a91D46ee29420539FC25FD07c5FEa3E
 
   const testProps: TestProps = {
-    chainId: "0x2",
-    governanceChainId: "0x1",
+    chainId: "0x1",
+    governanceChainId: "0x2",
     governanceContract: "0x0000000000000000000000000000000000000000000000000000000000000004",
 
-    bridgeChainId: "0x02",
-    bridgeGovernanceChainId: "0x1",
+    bridgeChainId: "0x01",
+    bridgeGovernanceChainId: "0x2",
     bridgeGovernanceContract: "0x0000000000000000000000000000000000000000000000000000000000000004",
 
     initSigners: guardianSet.addressList,
@@ -214,14 +214,13 @@ describe("Tests: SuSyBridge", () => {
 
     const bridgeSetupTx = await deployedContracts.bridgeSetup.setup(
       deployedContracts.bridgeImplementation.address,
-      testProps.chainId,
+      testProps.bridgeChainId,
       deployedContracts.wormholeContract.address,
-      testProps.bridgeChainId, // testGovernanceChainId,
+      testProps.bridgeGovernanceChainId, // testGovernanceChainId,
       testProps.bridgeGovernanceContract, // testGovernanceContract,
       deployedContracts.tokenImplementation.address,
       deployedContracts.WETH.address
     );
-    console.log({ bridgeSetupTx });
 
     const susyTokenBridgeFactory = (await ethers.getContractFactory("SuSyTokenBridge")) as SuSyTokenBridge__factory;
 
@@ -230,25 +229,13 @@ describe("Tests: SuSyBridge", () => {
       bridgeSetupTx.data
     );
 
-    console.log("wh: provided addr", { wormhole: deployedContracts.wormholeContract.address });
-
-    // console.log("wh: got addr", { wormhole: await deployedContracts.bridgeImplementation.wormhole() });
-    console.log("wh: got addr", {
-      wormhole: await bridgeImplFactory.attach(deployedContracts.susyTokenBridge.address).wormhole(),
-    });
-
     deployedContracts.bridgeImplementation = await bridgeImplFactory.attach(deployedContracts.susyTokenBridge.address);
-    // console.log("wh: got addr", { wormhole: await deployedContracts.susyTokenBridge!.wormhole() });
-    // console.log("impl", await deployedContracts.susyTokenBridge.resolvedAddress);
+
+    expect(deployedContracts.wormholeContract.address).to.equal(await deployedContracts.bridgeImplementation.wormhole()); // Recommended
   });
 
   it("should register a foreign bridge implementation correctly", async () => {
     const bridgeImplDeployed = deployedContracts.bridgeImplementation!;
-
-    console.log({ bridge_address: bridgeImplDeployed.address });
-    console.log({
-      wormhole_contract: deployedContracts.wormholeContract?.address,
-    });
 
     const moduleName = "TokenBridge";
     const moduleBytes = Buffer.from(moduleName, "utf8");
@@ -295,8 +282,8 @@ describe("Tests: SuSyBridge", () => {
     );
 
     let before = await bridgeImplDeployed.bridgeContracts(testProps.bridgeChainId);
-    console.log({ before });
-    expect(before, "0x0000000000000000000000000000000000000000000000000000000000000000");
+    // console.log({ before });
+    expect(before).to.equal("0x0000000000000000000000000000000000000000000000000000000000000000");
 
     console.log({ wormhole: await bridgeImplDeployed.wormhole() });
     // console.log({ wormhole: deployedContracts.bridgeSetup? });
@@ -308,6 +295,7 @@ describe("Tests: SuSyBridge", () => {
     let after = await bridgeImplDeployed.bridgeContracts(testProps.bridgeChainId);
 
     console.log({ after });
-    expect(after, testProps.bridgeGovernanceContract);
+    // expect(after, testProps.bridgeGovernanceContract);
+    expect(after).to.equal(testProps.bridgeGovernanceContract);
   });
 });
