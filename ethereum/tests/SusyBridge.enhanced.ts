@@ -1,3 +1,5 @@
+import { MockBridgeImplementation__factory } from "./../typechain/factories/MockBridgeImplementation__factory";
+import { MockBridgeImplementation } from "./../typechain/MockBridgeImplementation.d";
 import { TokenImplementation__factory } from "./../typechain/factories/TokenImplementation__factory";
 import { BridgeImplementation__factory } from "./../typechain/factories/BridgeImplementation__factory";
 import { artifacts, ethers, waffle, web3 } from "hardhat";
@@ -54,18 +56,6 @@ describe("Tests: SuSyBridge", () => {
   // const testBridgedAssetAddress =
   //   "000000000000000000000000b7a2211e8165943192ad04f5dd21bedc29ff003e";
 
-  type TestProps = {
-    governanceChainId: string;
-    governanceContract: string;
-    chainId: string;
-    initSigners: string[]; // address list of guardians
-
-    bridgeChainId: string;
-    bridgeGovernanceChainId: string;
-    bridgeGovernanceContract: string;
-    WETH?: string;
-  };
-
   class GuardianSet {
     n: number;
     guardians: Wallet[];
@@ -102,6 +92,38 @@ describe("Tests: SuSyBridge", () => {
   // BRIDGE_INIT_GOV_CONTRACT=0x0000000000000000000000000000000000000000000000000000000000000004
   // BRIDGE_INIT_WETH=0xDDb64fE46a91D46ee29420539FC25FD07c5FEa3E
 
+  // initialize(
+  //   name_: string,
+  //   symbol_: string,
+  //   decimals_: BigNumberish,
+  //   sequence_: BigNumberish,
+  //   owner_: string,
+  //   chainId_: BigNumberish,
+  //   nativeContract_: BytesLike,
+  type TestTokenProps = {
+    name: string;
+    symbol: string;
+    decimals: number;
+    sequence: number;
+    owner: string;
+    chainId: number;
+    nativeContract: string;
+  };
+
+  type TestProps = {
+    governanceChainId: string;
+    governanceContract: string;
+    chainId: string;
+    initSigners: string[]; // address list of guardians
+
+    bridgeChainId: string;
+    bridgeGovernanceChainId: string;
+    bridgeGovernanceContract: string;
+    WETH?: string;
+
+    testToken?: TestTokenProps;
+  };
+
   const testProps: TestProps = {
     chainId: "0x1",
     governanceChainId: "0x2",
@@ -112,7 +134,19 @@ describe("Tests: SuSyBridge", () => {
     bridgeGovernanceContract: "0x0000000000000000000000000000000000000000000000000000000000000004",
 
     initSigners: guardianSet.addressList,
+
+    testToken: {
+      name: "TestToken",
+      symbol: "TT",
+      decimals: 18,
+      sequence: 0,
+      owner: guardianSet.addressList[0],
+      chainId: 0,
+      nativeContract: "0x0",
+    },
   };
+
+  testProps.testToken!.nativeContract = testProps.governanceContract;
 
   const deployedContracts: {
     /** Migration N0 */
@@ -179,7 +213,7 @@ describe("Tests: SuSyBridge", () => {
       testProps.governanceContract // testGovernanceContract
     );
 
-    console.log({ setupTx });
+    // console.log({ setupTx });
 
     // const setup = new web3.eth.Contract(SetupArtifact.abi, deployedContracts.setupContract.address);
 
@@ -238,31 +272,19 @@ describe("Tests: SuSyBridge", () => {
     const bridgeImplDeployed = deployedContracts.bridgeImplementation!;
 
     const moduleName = "TokenBridge";
-    const moduleBytes = Buffer.from(moduleName, "utf8");
+    const moduleNameHex = buildOfLen(Buffer.from(moduleName, "utf8"), 32).toString("hex");
 
-    let moduleNameHex = Buffer.alloc(32)
-      .fill(moduleBytes, 32 - moduleBytes.length)
-      .toString("hex");
-
-    const registerChainStruct = {};
-
-    console.log({ moduleNameHex, moduleName });
+    // console.log({ moduleNameHex, moduleName });
     console.log(
       "000000000000000000000000000000000000000000546f6b656e427269646765",
       web3.utils.hexToString("0x000000000000000000000000000000000000000000546f6b656e427269646765")
-      // web3.utils.hexToNumber(
-      //   "0x000000000000000000000000000000000000000000546f6b656e427269646765"
-      // )
     );
 
     const dataRaw = [
       "0x",
-      // "000000000000000000000000000000000000000000546f6b656e427269646765",
       moduleNameHex,
-      // Buffer.alloc(1).fill("1").toString(), // chain action
-      // Buffer.alloc(2).fill(testGovernanceChainId).toString(), // chain id
-      "01",
-      "0000",
+      "01", // chain action
+      "0000", // chain id
       web3.eth.abi.encodeParameter("uint16", testProps.bridgeChainId).substring(2 + (64 - 4)),
       web3.eth.abi.encodeParameter("bytes32", testProps.bridgeGovernanceContract).substring(2),
     ];
@@ -282,11 +304,9 @@ describe("Tests: SuSyBridge", () => {
     );
 
     let before = await bridgeImplDeployed.bridgeContracts(testProps.bridgeChainId);
-    // console.log({ before });
+
     expect(before).to.equal("0x0000000000000000000000000000000000000000000000000000000000000000");
 
-    console.log({ wormhole: await bridgeImplDeployed.wormhole() });
-    // console.log({ wormhole: deployedContracts.bridgeSetup? });
     await bridgeImplDeployed.registerChain("0x" + vm, {
       from: guardianSet.addressList[0],
       gasLimit: 2000000,
@@ -294,8 +314,56 @@ describe("Tests: SuSyBridge", () => {
 
     let after = await bridgeImplDeployed.bridgeContracts(testProps.bridgeChainId);
 
-    console.log({ after });
-    // expect(after, testProps.bridgeGovernanceContract);
     expect(after).to.equal(testProps.bridgeGovernanceContract);
+  });
+
+  it("bridged tokens should only be mint- and burn-able by owner", async function () {
+    const tokenFactory = (await ethers.getContractFactory("TokenImplementation")) as TokenImplementation__factory;
+
+    const randomN = (n: number) => Math.ceil(Math.random() * n);
+    const randomTwo = (n: number): [number, number] => {
+      const a = randomN(n);
+      const b = randomN(n);
+      return a !== b ? [a, b] : randomTwo(n);
+    };
+
+    const [ownerIndex, nonOwnerIndex] = randomTwo(guardianSet.n - 1);
+    const legitOwner = guardianSet.guardians[ownerIndex];
+    const nonOwner = guardianSet.guardians[nonOwnerIndex];
+    // initialize our template token contract
+    // zero init supply
+
+    let token = await tokenFactory.connect(legitOwner).deploy();
+
+    await token
+      .connect(legitOwner)
+      .initialize(
+        testProps.testToken!.name,
+        testProps.testToken!.symbol,
+        testProps.testToken!.decimals,
+        testProps.testToken!.sequence,
+        legitOwner.address,
+        testProps.testToken!.chainId,
+        testProps.testToken!.nativeContract
+      );
+
+    await token.connect(legitOwner).mint(guardianSet.addressList[0], 10);
+    await token.connect(legitOwner).burn(guardianSet.addressList[0], 5);
+
+    let failed = false;
+    try {
+      await token.connect(nonOwner).mint(guardianSet.addressList[0], 10);
+    } catch (err) {
+      failed = true;
+    }
+    expect(failed).to.equal(true);
+
+    failed = false;
+    try {
+      await token.connect(nonOwner).burn(guardianSet.addressList[0], 10);
+    } catch (err) {
+      failed = true;
+    }
+    expect(failed).to.equal(true);
   });
 });
