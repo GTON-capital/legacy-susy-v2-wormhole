@@ -349,7 +349,7 @@ contract SuSyBridge is BridgeGovernance {
         setOutstandingBridged(token, outstandingBridged(token) - normalizedAmount);
     }
 
-    function verifyBridgeVM(IWormhole.VM memory vm) internal view returns (bool){
+    function verifyBridgeVM(IWormhole.VM memory vm) internal view returns (bool) {
         if (bridgeContracts(vm.emitterChainId) == vm.emitterAddress) {
             return true;
         }

@@ -1,3 +1,5 @@
+import { assert } from "chai";
+
 import { MockBridgeImplementation__factory } from "./../typechain/factories/MockBridgeImplementation__factory";
 import { MockBridgeImplementation } from "./../typechain/MockBridgeImplementation.d";
 import { TokenImplementation__factory } from "./../typechain/factories/TokenImplementation__factory";
@@ -55,6 +57,12 @@ describe("Tests: SuSyBridge", () => {
   // const testBridgedAssetChain = "0001";
   // const testBridgedAssetAddress =
   //   "000000000000000000000000b7a2211e8165943192ad04f5dd21bedc29ff003e";
+
+  const BridgeStructs_PayloadEnum = {
+    Transfer: 1,
+    AssetMeta: 2,
+    GenericAction: 4,
+  };
 
   class GuardianSet {
     n: number;
@@ -122,7 +130,11 @@ describe("Tests: SuSyBridge", () => {
     WETH?: string;
 
     testToken?: TestTokenProps;
+
+    emitterChainId: string;
   };
+
+  const testForeignChainId = 33;
 
   const testProps: TestProps = {
     chainId: "0x1",
@@ -141,9 +153,11 @@ describe("Tests: SuSyBridge", () => {
       decimals: 18,
       sequence: 0,
       owner: guardianSet.addressList[0],
-      chainId: 0,
+      chainId: testForeignChainId,
       nativeContract: "0x0",
     },
+
+    emitterChainId: "0000",
   };
 
   testProps.testToken!.nativeContract = testProps.governanceContract;
@@ -172,20 +186,9 @@ describe("Tests: SuSyBridge", () => {
     return Buffer.alloc(n).fill(input, n - input.length);
   }
 
+  // суета происходит перед каждым тестом
+  // this fn runs before each test (pure state persist)
   beforeEach("deploy test contracts", async () => {
-    // суета
-
-    // const vanilaGovernanceFactory = (await ethers.getContractFactory("BridgeGovernance")) as BridgeGovernance__factory;
-
-    // const governanceContract = await vanilaGovernanceFactory.deploy();
-    // const bridgeGovernanceContract = await vanilaGovernanceFactory.deploy();
-
-    // testProps.governanceContract = governanceContract.address;
-    // testProps.bridgeGovernanceContract = bridgeGovernanceContract.address;
-
-    // testProps.governanceContract = "0x" + buildOfLen(governanceContract.address, 32).toString("hex");
-    // testProps.bridgeGovernanceContract = "0x" + buildOfLen(bridgeGovernanceContract.address, 32).toString("hex");
-
     /**
      * Migration N0
      */
@@ -213,22 +216,6 @@ describe("Tests: SuSyBridge", () => {
       testProps.governanceContract // testGovernanceContract
     );
 
-    // console.log({ setupTx });
-
-    // const setup = new web3.eth.Contract(SetupArtifact.abi, deployedContracts.setupContract.address);
-
-    // const setupTxAbiEncoded = setup.methods
-    //   .setup(
-    //     deployedContracts.implementationContract.address,
-    //     guardianSet.addressList,
-    //     testProps.chainId, // testForeignChainId,
-    //     testProps.governanceChainId, // testGovernanceChainId,
-    //     testProps.governanceContract // testGovernanceContract
-    //   )
-    //   .encodeABI();
-
-    // console.log({ setupTxAbiEncoded });
-
     deployedContracts.wormholeContract = (await wormholeFactory.deploy(
       deployedContracts.setupContract.address,
       setupTx.data
@@ -241,7 +228,22 @@ describe("Tests: SuSyBridge", () => {
     const bridgeImplFactory = (await ethers.getContractFactory("BridgeImplementation")) as BridgeImplementation__factory;
     const tokenImplFactory = (await ethers.getContractFactory("TokenImplementation")) as TokenImplementation__factory;
 
-    deployedContracts.tokenImplementation = (await tokenImplFactory.deploy()) as TokenImplementation;
+    /** Token Migration */
+    const legitOwner = guardianSet.guardians[0];
+    const token = await tokenImplFactory.connect(legitOwner).deploy();
+    await token
+      .connect(legitOwner)
+      .initialize(
+        testProps.testToken!.name,
+        testProps.testToken!.symbol,
+        testProps.testToken!.decimals,
+        testProps.testToken!.sequence,
+        legitOwner.address,
+        testProps.testToken!.chainId,
+        testProps.testToken!.nativeContract
+      );
+
+    deployedContracts.tokenImplementation = token;
 
     deployedContracts.bridgeSetup = (await bridgeSetupFactory.deploy()) as BridgeSetup;
     deployedContracts.bridgeImplementation = (await bridgeImplFactory.deploy()) as BridgeImplementation;
@@ -268,13 +270,12 @@ describe("Tests: SuSyBridge", () => {
     expect(deployedContracts.wormholeContract.address).to.equal(await deployedContracts.bridgeImplementation.wormhole()); // Recommended
   });
 
-  it("should register a foreign bridge implementation correctly", async () => {
+  async function runRegisterChainTest() {
     const bridgeImplDeployed = deployedContracts.bridgeImplementation!;
 
     const moduleName = "TokenBridge";
     const moduleNameHex = buildOfLen(Buffer.from(moduleName, "utf8"), 32).toString("hex");
 
-    // console.log({ moduleNameHex, moduleName });
     console.log(
       "000000000000000000000000000000000000000000546f6b656e427269646765",
       web3.utils.hexToString("0x000000000000000000000000000000000000000000546f6b656e427269646765")
@@ -284,7 +285,7 @@ describe("Tests: SuSyBridge", () => {
       "0x",
       moduleNameHex,
       "01", // chain action
-      "0000", // chain id
+      testProps.emitterChainId, // "0000", // chain id
       web3.eth.abi.encodeParameter("uint16", testProps.bridgeChainId).substring(2 + (64 - 4)),
       web3.eth.abi.encodeParameter("bytes32", testProps.bridgeGovernanceContract).substring(2),
     ];
@@ -315,17 +316,21 @@ describe("Tests: SuSyBridge", () => {
     let after = await bridgeImplDeployed.bridgeContracts(testProps.bridgeChainId);
 
     expect(after).to.equal(testProps.bridgeGovernanceContract);
+  }
+
+  it("should register a foreign bridge implementation correctly", async () => {
+    await runRegisterChainTest();
   });
+
+  const randomN = (n: number) => Math.ceil(Math.random() * n);
+  const randomTwo = (n: number): [number, number] => {
+    const a = randomN(n);
+    const b = randomN(n);
+    return a !== b ? [a, b] : randomTwo(n);
+  };
 
   it("bridged tokens should only be mint- and burn-able by owner", async function () {
     const tokenFactory = (await ethers.getContractFactory("TokenImplementation")) as TokenImplementation__factory;
-
-    const randomN = (n: number) => Math.ceil(Math.random() * n);
-    const randomTwo = (n: number): [number, number] => {
-      const a = randomN(n);
-      const b = randomN(n);
-      return a !== b ? [a, b] : randomTwo(n);
-    };
 
     const [ownerIndex, nonOwnerIndex] = randomTwo(guardianSet.n - 1);
     const legitOwner = guardianSet.guardians[ownerIndex];
@@ -365,5 +370,103 @@ describe("Tests: SuSyBridge", () => {
       failed = true;
     }
     expect(failed).to.equal(true);
+  });
+
+  it("should attest a token correctly", async function name() {
+    const bridgeImpl = deployedContracts.bridgeImplementation!;
+    const tokenImpl = deployedContracts.tokenImplementation!;
+
+    await bridgeImpl.attestToken(tokenImpl.address, "234");
+  });
+
+  it("should correctly deploy a wrapped asset for a token attestation", async function name() {
+    await runRegisterChainTest();
+
+    const bridgeImpl = deployedContracts.bridgeImplementation!;
+    const tokenImplFactory = (await ethers.getContractFactory("TokenImplementation")) as TokenImplementation__factory;
+
+    const legitOwner = guardianSet.guardians[0];
+    const wrappedAsset = await tokenImplFactory.connect(legitOwner).deploy();
+
+    const mockData: TestTokenProps = {
+      name: "Wrapped USDT",
+      symbol: "sUSDT",
+      decimals: 18,
+      sequence: 0,
+      owner: guardianSet.addressList[0],
+      chainId: testForeignChainId,
+      nativeContract: testProps.bridgeGovernanceContract,
+    };
+
+    const nameWithPostfix = (name: string) => {
+      const postfix = "(SuSy)";
+      return name + " " + postfix;
+    };
+
+    await wrappedAsset
+      .connect(legitOwner)
+      .initialize(
+        mockData.name,
+        mockData.symbol,
+        mockData.decimals,
+        mockData.sequence,
+        legitOwner.address,
+        mockData.chainId,
+        mockData.nativeContract
+      );
+
+    const web3_wrappedAssetChainId = web3.eth.abi.encodeParameter("uint16", mockData.chainId).substring(2 + (64 - 4));
+    const web3_wrappedAssetAddress = buildOfLen(wrappedAsset.address, 32).toString("hex");
+    const dataRaw = [
+      "0x0" + BridgeStructs_PayloadEnum.AssetMeta,
+      // "0x0" + BridgeStructs_PayloadEnum.AssetMeta,
+      // tokenAddress
+      web3_wrappedAssetAddress,
+      // token chain
+      web3_wrappedAssetChainId,
+      // decimals
+      String(mockData.decimals),
+      // symbol
+      buildOfLen(Buffer.from(mockData.symbol, "utf8"), 32).toString("hex"),
+      // name
+      buildOfLen(Buffer.from(mockData.name, "utf8"), 32).toString("hex"),
+    ];
+
+    console.log({ dataRaw });
+    const data = dataRaw.join("");
+
+    const vm = await signAndEncodeVM(
+      0,
+      0,
+      testProps.bridgeChainId,
+      testProps.bridgeGovernanceContract,
+      0,
+      data,
+      guardianSet.privateKeysList,
+      0,
+      0
+    );
+
+    const tx = await bridgeImpl.createWrapped("0x" + vm);
+
+    const wrappedAssetRetrieved = await bridgeImpl.wrappedAsset("0x" + web3_wrappedAssetChainId, "0x" + web3_wrappedAssetAddress);
+
+    assert.isNotNull(wrappedAssetRetrieved, "wrapped asset is ok");
+
+    const initializedWrappedAsset = await wrappedAsset.connect(wrappedAssetRetrieved);
+
+    assert.strictEqual(await initializedWrappedAsset.symbol(), mockData.symbol, "wrapped asset symbol is ok");
+
+    assert.strictEqual(await initializedWrappedAsset.name(), nameWithPostfix(mockData.name), "wrapped asset name is ok");
+
+    assert.strictEqual(await initializedWrappedAsset.decimals(), mockData.decimals, "wrapped asset decimals is ok");
+
+    assert.strictEqual(await initializedWrappedAsset.chainId(), mockData.chainId, "wrapped asset chain id is ok");
+
+    const initializedWrappedAsset_nativeContract = await initializedWrappedAsset.nativeContract();
+
+    initializedWrappedAsset_nativeContract;
+
+    assert.strictEqual(initializedWrappedAsset_nativeContract, mockData.nativeContract, "native contracts are ok");
   });
 });
