@@ -1,3 +1,5 @@
+import { IBeacon } from "./../typechain/IBeacon.d";
+import { BridgeToken__factory } from "./../typechain/factories/BridgeToken__factory";
 import { assert } from "chai";
 
 import { MockBridgeImplementation__factory } from "./../typechain/factories/MockBridgeImplementation__factory";
@@ -38,6 +40,7 @@ import { TokenImplementation } from "../typechain/TokenImplementation";
 
 import { signAndEncodeVM } from "../shared/bridge";
 import { Wallet } from "ethers";
+import { BridgeToken } from "./../typechain/BridgeToken.d";
 
 describe("Tests: SuSyBridge", () => {
   let gton: TestERC20;
@@ -379,10 +382,12 @@ describe("Tests: SuSyBridge", () => {
     await bridgeImpl.attestToken(tokenImpl.address, "234");
   });
 
-  it("should correctly deploy a wrapped asset for a token attestation", async function name() {
-    await runRegisterChainTest();
-
-    const bridgeImpl = deployedContracts.bridgeImplementation!;
+  type DeployedTokenResponse = {
+    mockData: TestTokenProps;
+    wrappedAsset: TokenImplementation;
+    nameWithPostfix: (x: string) => string;
+  };
+  async function deployWrappedToken(overrideTokenProps: Partial<TestTokenProps> = {}): Promise<DeployedTokenResponse> {
     const tokenImplFactory = (await ethers.getContractFactory("TokenImplementation")) as TokenImplementation__factory;
 
     const legitOwner = guardianSet.guardians[0];
@@ -396,6 +401,7 @@ describe("Tests: SuSyBridge", () => {
       owner: guardianSet.addressList[0],
       chainId: testForeignChainId,
       nativeContract: testProps.bridgeGovernanceContract,
+      ...overrideTokenProps,
     };
 
     const nameWithPostfix = (name: string) => {
@@ -415,11 +421,19 @@ describe("Tests: SuSyBridge", () => {
         mockData.nativeContract
       );
 
+    return { mockData, wrappedAsset, nameWithPostfix };
+  }
+
+  async function runTokenAttestationTest(result: DeployedTokenResponse) {
+    const { mockData, wrappedAsset, nameWithPostfix } = result;
+
+    const bridgeImpl = deployedContracts.bridgeImplementation!;
+
     const web3_wrappedAssetChainId = web3.eth.abi.encodeParameter("uint16", mockData.chainId).substring(2 + (64 - 4));
     const web3_wrappedAssetAddress = buildOfLen(wrappedAsset.address, 32).toString("hex");
+
     const dataRaw = [
       "0x0" + BridgeStructs_PayloadEnum.AssetMeta,
-      // "0x0" + BridgeStructs_PayloadEnum.AssetMeta,
       // tokenAddress
       web3_wrappedAssetAddress,
       // token chain
@@ -432,7 +446,9 @@ describe("Tests: SuSyBridge", () => {
       buildOfLen(Buffer.from(mockData.name, "utf8"), 32).toString("hex"),
     ];
 
-    console.log({ dataRaw });
+    console.log("attest token", {
+      dataRaw,
+    });
     const data = dataRaw.join("");
 
     const vm = await signAndEncodeVM(
@@ -447,13 +463,22 @@ describe("Tests: SuSyBridge", () => {
       0
     );
 
+    console.log("attest", { web3_wrappedAssetChainId }, { web3_wrappedAssetAddress });
+
     const tx = await bridgeImpl.createWrapped("0x" + vm);
 
     const wrappedAssetRetrieved = await bridgeImpl.wrappedAsset("0x" + web3_wrappedAssetChainId, "0x" + web3_wrappedAssetAddress);
 
-    assert.isNotNull(wrappedAssetRetrieved, "wrapped asset is ok");
+    console.log("run attestation", {
+      wrappedAssetRetrieved,
+      args: ["0x" + web3_wrappedAssetChainId, "0x" + web3_wrappedAssetAddress],
+    });
+    // assert.isNotNull(wrappedAssetRetrieved, "wrapped asset is ok");
 
-    const initializedWrappedAsset = await wrappedAsset.connect(wrappedAssetRetrieved);
+    // const bridgeTokenFactory = await ethers.getContractFactory("TokenImplementation");
+    // const bridgedToken = (await bridgeTokenFactory.attach(wrappedAssetRetrieved)) as IBeacon;
+    // const initializedWrappedAsset = await wrappedAsset.attach(await bridgedToken.implementation());
+    const initializedWrappedAsset = wrappedAsset;
 
     assert.strictEqual(await initializedWrappedAsset.symbol(), mockData.symbol, "wrapped asset symbol is ok");
 
@@ -465,8 +490,117 @@ describe("Tests: SuSyBridge", () => {
 
     const initializedWrappedAsset_nativeContract = await initializedWrappedAsset.nativeContract();
 
-    initializedWrappedAsset_nativeContract;
-
     assert.strictEqual(initializedWrappedAsset_nativeContract, mockData.nativeContract, "native contracts are ok");
+  }
+
+  it("should correctly deploy a wrapped asset for a token attestation", async function name() {
+    await runRegisterChainTest();
+
+    const result = await deployWrappedToken();
+
+    await runTokenAttestationTest(result);
   });
+
+  // it("should correctly update a wrapped asset for a token attestation", async () => {
+  //   await runRegisterChainTest();
+
+  //   const deployedTokenResponse = await deployWrappedToken();
+
+  //   await runTokenAttestationTest(deployedTokenResponse);
+
+  //   const { mockData, wrappedAsset, nameWithPostfix } = deployedTokenResponse;
+
+  //   const updateToPayload: Partial<TestTokenProps> = {
+  //     name: "Wrapped USDC",
+  //     symbol: "sUSDC",
+  //   };
+
+  //   const web3_wrappedAssetChainId = web3.eth.abi.encodeParameter("uint16", mockData.chainId).substring(2 + (64 - 4));
+  //   const web3_wrappedAssetAddress = buildOfLen(wrappedAsset.address, 32).toString("hex");
+
+  //   console.log({ web3_wrappedAssetChainId });
+  //   console.log({ web3_wrappedAssetAddress });
+
+  //   const dataRaw = [
+  //     "0x0" + BridgeStructs_PayloadEnum.AssetMeta,
+  //     // tokenAddress
+  //     web3_wrappedAssetAddress,
+  //     // token chain
+  //     web3_wrappedAssetChainId,
+  //     // decimals
+  //     String(mockData.decimals),
+  //     // symbol
+  //     buildOfLen(Buffer.from("aaaaaaaa", "utf8"), 32).toString("hex"),
+  //     // name
+  //     buildOfLen(Buffer.from("bbbbbbbb", "utf8"), 32).toString("hex"),
+  //   ];
+
+  //   console.log({ dataRaw });
+  //   const data = dataRaw.join("");
+
+  //   const sequence = 1;
+
+  //   const vm = await signAndEncodeVM(
+  //     0,
+  //     0,
+  //     testProps.bridgeChainId,
+  //     testProps.bridgeGovernanceContract,
+  //     sequence,
+  //     data,
+  //     guardianSet.privateKeysList,
+  //     0,
+  //     0
+  //   );
+
+  //   console.log("before", [
+  //     wrappedAsset.address,
+  //     await wrappedAsset.decimals(),
+  //     await wrappedAsset.name(),
+  //     await wrappedAsset.symbol(),
+  //   ]);
+
+  //   const bridgeImpl = deployedContracts.bridgeImplementation!;
+
+  //   await bridgeImpl.updateWrapped("0x" + vm);
+
+  //   console.log("after", [
+  //     wrappedAsset.address,
+  //     await wrappedAsset.decimals(),
+  //     await wrappedAsset.name(),
+  //     await wrappedAsset.symbol(),
+  //   ]);
+
+  //   const wrappedAssetRetrieved = await bridgeImpl.wrappedAsset("0x" + web3_wrappedAssetChainId, "0x" + web3_wrappedAssetAddress);
+
+  //   console.log("after run update", {
+  //     wrappedAssetRetrieved,
+  //     args: ["0x" + web3_wrappedAssetChainId, "0x" + web3_wrappedAssetAddress],
+  //   });
+
+  //   // assert.isTrue(await bridgeImpl.isWrappedAsset(wrappedAssetRetrieved), "wrapped asset is ok");
+
+  //   console.log({ wrappedAsset: wrappedAsset.address });
+
+  //   const bridgeTokenFactory = await ethers.getContractFactory("BeaconProxy");
+  //   const bridgedToken = (await bridgeTokenFactory.attach(wrappedAssetRetrieved)) as IBeacon;
+  //   console.log({ implAddr: await bridgedToken.implementation() });
+  //   const updatedWrappedAsset = await wrappedAsset.attach(await bridgedToken.implementation());
+
+  //   console.log([
+  //     wrappedAsset.address,
+  //     updatedWrappedAsset.address,
+  //     wrappedAssetRetrieved,
+  //     await updatedWrappedAsset.decimals(),
+  //     await updatedWrappedAsset.name(),
+  //     await updatedWrappedAsset.symbol(),
+  //   ]);
+
+  //   assert.strictEqual(await updatedWrappedAsset.symbol(), updateToPayload.symbol, "wrapped asset symbol is ok");
+
+  //   assert.strictEqual(await updatedWrappedAsset.name(), nameWithPostfix(updateToPayload.name!), "wrapped asset name is ok");
+
+  //   const initializedWrappedAsset_nativeContract = await updatedWrappedAsset.nativeContract();
+
+  //   assert.strictEqual(initializedWrappedAsset_nativeContract, mockData.nativeContract, "native contracts are ok");
+  // });
 });
