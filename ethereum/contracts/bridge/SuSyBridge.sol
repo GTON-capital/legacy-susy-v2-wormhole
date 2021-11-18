@@ -277,11 +277,16 @@ contract SuSyBridge is BridgeGovernance {
 
         IERC20 transferToken;
         if (transfer.tokenChain == chainId()) {
+            // basically means: unlock operation
+            // completion of transfer of the existing token (chain id eq)
             transferToken = IERC20(address(uint160(uint256(transfer.tokenAddress))));
 
             // track outstanding token amounts
             bridgedIn(address(transferToken), transfer.amount);
         } else {
+            // basically means: mint operation
+            // completion of transfer of the wrapped token (chain ids are different)
+            // error is thrown if wrapped version does not exist
             address wrapped = wrappedAsset(transfer.tokenChain, transfer.tokenAddress);
             require(wrapped != address(0), "no wrapper for this token created yet");
 

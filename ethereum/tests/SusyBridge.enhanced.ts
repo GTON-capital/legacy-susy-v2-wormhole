@@ -40,7 +40,7 @@ import { BridgeImplementation } from "../typechain/BridgeImplementation";
 import { TokenImplementation } from "../typechain/TokenImplementation";
 
 import { signAndEncodeVM } from "../shared/bridge";
-import { Wallet } from "ethers";
+import { providers, Wallet } from "ethers";
 import { BridgeToken } from "./../typechain/BridgeToken.d";
 
 describe("Tests: SuSyBridge", () => {
@@ -274,11 +274,16 @@ describe("Tests: SuSyBridge", () => {
     expect(deployedContracts.wormholeContract.address).to.equal(await deployedContracts.bridgeImplementation.wormhole()); // Recommended
   });
 
-  async function runRegisterChainTest() {
+  async function runRegisterChainTest(overrideProps: Partial<TestProps> = {}) {
     const bridgeImplDeployed = deployedContracts.bridgeImplementation!;
 
     const moduleName = "TokenBridge";
     const moduleNameHex = buildOfLen(Buffer.from(moduleName, "utf8"), 32).toString("hex");
+
+    const props = {
+      ...testProps,
+      ...overrideProps,
+    }
 
     console.log(
       "000000000000000000000000000000000000000000546f6b656e427269646765",
@@ -289,9 +294,9 @@ describe("Tests: SuSyBridge", () => {
       "0x",
       moduleNameHex,
       "01", // chain action
-      testProps.emitterChainId, // "0000", // chain id
-      web3.eth.abi.encodeParameter("uint16", testProps.bridgeChainId).substring(2 + (64 - 4)),
-      web3.eth.abi.encodeParameter("bytes32", testProps.bridgeGovernanceContract).substring(2),
+      props.emitterChainId, // "0000", // chain id
+      web3.eth.abi.encodeParameter("uint16", props.bridgeChainId).substring(2 + (64 - 4)),
+      web3.eth.abi.encodeParameter("bytes32", props.bridgeGovernanceContract).substring(2),
     ];
 
     const data = dataRaw.join("");
@@ -299,8 +304,8 @@ describe("Tests: SuSyBridge", () => {
     const vm = await signAndEncodeVM(
       1,
       1,
-      testProps.governanceChainId, // testGovernanceChainId,
-      testProps.governanceContract, // testGovernanceContract,
+      props.governanceChainId, // testGovernanceChainId,
+      props.governanceContract, // testGovernanceContract,
       0,
       data,
       guardianSet.privateKeysList,
@@ -308,7 +313,7 @@ describe("Tests: SuSyBridge", () => {
       0
     );
 
-    let before = await bridgeImplDeployed.bridgeContracts(testProps.bridgeChainId);
+    let before = await bridgeImplDeployed.bridgeContracts(props.bridgeChainId);
 
     expect(before).to.equal("0x0000000000000000000000000000000000000000000000000000000000000000");
 
@@ -317,9 +322,9 @@ describe("Tests: SuSyBridge", () => {
       gasLimit: 2000000,
     });
 
-    let after = await bridgeImplDeployed.bridgeContracts(testProps.bridgeChainId);
+    let after = await bridgeImplDeployed.bridgeContracts(props.bridgeChainId);
 
-    expect(after).to.equal(testProps.bridgeGovernanceContract);
+    expect(after).to.equal(props.bridgeGovernanceContract);
   }
 
   it("should register a foreign bridge implementation correctly", async () => {
@@ -448,9 +453,9 @@ describe("Tests: SuSyBridge", () => {
       buildOfLen(Buffer.from(mockData.name, "utf8"), 32).toString("hex"),
     ];
 
-    console.log("attest token", {
-      dataRaw,
-    });
+    // console.log("attest token", {
+    //   dataRaw,
+    // });
     const data = dataRaw.join("");
 
     const vm = await signAndEncodeVM(
@@ -465,7 +470,7 @@ describe("Tests: SuSyBridge", () => {
       0
     );
 
-    console.log("attest", { web3_wrappedAssetChainId }, { web3_wrappedAssetAddress });
+    // console.log("attest", { web3_wrappedAssetChainId }, { web3_wrappedAssetAddress });
 
     const tx = await bridgeImpl.createWrapped("0x" + vm);
 
@@ -606,14 +611,8 @@ describe("Tests: SuSyBridge", () => {
   //   assert.strictEqual(initializedWrappedAsset_nativeContract, mockData.nativeContract, "native contracts are ok");
   // });
 
-  it("should deposit and log transfers correctly", async function () {
-    await runRegisterChainTest();
-
-    const result = await deployWrappedToken();
-
-    await runTokenAttestationTest(result);
-
-    let { wrappedAsset, tokenOwner, mockData } = result;
+  async function runDepositFundsTest(result: DeployedTokenResponse) {
+    let { wrappedAsset, tokenOwner } = result;
 
     // calls from owner
     wrappedAsset = wrappedAsset.connect(tokenOwner);
@@ -640,7 +639,7 @@ describe("Tests: SuSyBridge", () => {
 
     let lastTransferEvent: { to: string; amount: number; from: string } | undefined | null;
     wrappedAsset.on("Transfer", (to: string, amount: number, from: string) => {
-      console.log("Transfer", { to, amount, from });
+      // console.log("Transfer", { to, amount, from });
       lastTransferEvent = { to, amount, from };
     });
 
@@ -661,7 +660,7 @@ describe("Tests: SuSyBridge", () => {
           payload,
           consistencyLevel,
         };
-        console.log({ lastLogMessageEvent });
+        // console.log({ lastLogMessageEvent });
       }
     );
 
@@ -675,7 +674,7 @@ describe("Tests: SuSyBridge", () => {
       "234" // nonce
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 1500));
 
     const accountBalanceAfter = await wrappedAsset.balanceOf(tokenOwner.address);
 
@@ -685,6 +684,7 @@ describe("Tests: SuSyBridge", () => {
 
     assert.equal(bridgeBalanceAfter.toString(), props.amount.toString());
 
+    console.log({ lastLogMessageEvent });
     assert.equal(lastLogMessageEvent!.sender, tokenBridge.address);
 
     // payload len
@@ -725,5 +725,85 @@ describe("Tests: SuSyBridge", () => {
       lastLogMessageEvent!.payload.substr(204, 64),
       web3.eth.abi.encodeParameter("uint256", new Big(props.fee).div(1e10).toString()).substring(2)
     );
+  }
+
+  it("should deposit and log transfers correctly", async function () {
+    await runRegisterChainTest();
+
+    const result = await deployWrappedToken();
+
+    await runTokenAttestationTest(result);
+    await runDepositFundsTest(result);
+  });
+
+  // this test emulates destination operation
+  // like, some funds were locked on other chain
+  // and this test validates correct behaviour on
+  // destination chain -> mint operation
+  it("should transfer out locked assets for a valid transfer vm", async () => {
+    const receiver = Wallet.createRandom();
+
+    await runRegisterChainTest();
+
+    const caseProps = { amount: new Big(10).mul(1e18), receiverChain: 137, receiverAddress: receiver.address };
+
+    const result = await deployWrappedToken({ chainId: caseProps.receiverChain });
+
+    await runTokenAttestationTest(result);
+
+    let { wrappedAsset, tokenOwner, mockData } = result;
+
+    wrappedAsset = wrappedAsset.connect(tokenOwner);
+
+    const tokenBridge = deployedContracts.bridgeImplementation!;
+
+    await wrappedAsset.mint(tokenBridge.address, caseProps.amount.toString());
+
+    const accountBalanceBefore = await wrappedAsset.balanceOf(tokenOwner.address);
+    const bridgeBalanceBefore = await wrappedAsset.balanceOf(tokenBridge.address);
+
+    assert.equal(accountBalanceBefore.toString(), "0");
+    assert.equal(bridgeBalanceBefore.toString(), caseProps.amount.toString());
+
+    const dataRaw = [
+      "0x0" + BridgeStructs_PayloadEnum.Transfer,
+      // amount
+      web3.eth.abi.encodeParameter("uint256", caseProps.amount.div(1e10).toString()).substring(2),
+      // tokenaddress
+      web3.eth.abi.encodeParameter("address", wrappedAsset.address).substr(2),
+      // tokenchain
+      web3.eth.abi.encodeParameter("uint16", await wrappedAsset.chainId()).substring(2 + (64 - 4)),
+      // receiver
+      web3.eth.abi.encodeParameter("address", caseProps.receiverAddress).substr(2),
+      // receiving chain
+      web3.eth.abi.encodeParameter("uint16", await tokenBridge.chainId()).substring(2 + (64 - 4)),
+      // fee
+      "0000000000000000000000000000000000000000000000000000000000000000",
+    ];
+
+    console.log({ dataRaw });
+    const data = dataRaw.join("");
+
+    const vm = await signAndEncodeVM(
+      0,
+      0,
+      testProps.bridgeChainId,
+      testProps.bridgeGovernanceContract,
+      0,
+      data,
+      guardianSet.privateKeysList,
+      0,
+      0
+    );
+
+    await tokenBridge.completeTransfer("0x" + vm);
+
+    const accountBalanceAfter = await wrappedAsset.balanceOf(tokenOwner.address);
+
+    const bridgeBalanceAfter = await wrappedAsset.balanceOf(tokenBridge.address);
+
+    assert.equal(accountBalanceAfter.toString(), "0");
+
+    assert.equal(bridgeBalanceAfter.toString(), caseProps.amount.toString());
   });
 });
