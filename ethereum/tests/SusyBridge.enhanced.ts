@@ -1,3 +1,4 @@
+import { Implementation__factory } from "./../typechain/factories/Implementation__factory";
 import { IBeacon } from "./../typechain/IBeacon.d";
 import { BridgeToken__factory } from "./../typechain/factories/BridgeToken__factory";
 import { assert } from "chai";
@@ -7,7 +8,7 @@ import { MockBridgeImplementation } from "./../typechain/MockBridgeImplementatio
 import { TokenImplementation__factory } from "./../typechain/factories/TokenImplementation__factory";
 import { BridgeImplementation__factory } from "./../typechain/factories/BridgeImplementation__factory";
 import { artifacts, ethers, waffle, web3 } from "hardhat";
-import BigNumber from "big.js";
+import { Big } from "big.js";
 
 import { expect } from "../shared/expect";
 
@@ -385,6 +386,7 @@ describe("Tests: SuSyBridge", () => {
   type DeployedTokenResponse = {
     mockData: TestTokenProps;
     wrappedAsset: TokenImplementation;
+    tokenOwner: Wallet;
     nameWithPostfix: (x: string) => string;
   };
   async function deployWrappedToken(overrideTokenProps: Partial<TestTokenProps> = {}): Promise<DeployedTokenResponse> {
@@ -421,7 +423,7 @@ describe("Tests: SuSyBridge", () => {
         mockData.nativeContract
       );
 
-    return { mockData, wrappedAsset, nameWithPostfix };
+    return { mockData, wrappedAsset, nameWithPostfix, tokenOwner: legitOwner };
   }
 
   async function runTokenAttestationTest(result: DeployedTokenResponse) {
@@ -603,4 +605,125 @@ describe("Tests: SuSyBridge", () => {
 
   //   assert.strictEqual(initializedWrappedAsset_nativeContract, mockData.nativeContract, "native contracts are ok");
   // });
+
+  it("should deposit and log transfers correctly", async function () {
+    await runRegisterChainTest();
+
+    const result = await deployWrappedToken();
+
+    await runTokenAttestationTest(result);
+
+    let { wrappedAsset, tokenOwner, mockData } = result;
+
+    // calls from owner
+    wrappedAsset = wrappedAsset.connect(tokenOwner);
+
+    const props = { amount: new Big(1).mul(1e18), fee: new Big(0.1).mul(1e18) };
+
+    // mint amount
+    await wrappedAsset.mint(tokenOwner.address, props.amount.toString());
+
+    const tokenBridge = deployedContracts.bridgeImplementation!;
+
+    await wrappedAsset.approve(tokenBridge.address, props.amount.toString());
+
+    // deposit tokens
+
+    const accountBalanceBefore = await wrappedAsset.balanceOf(tokenOwner.address);
+
+    const bridgeBalanceBefore = await wrappedAsset.balanceOf(tokenBridge.address);
+
+    assert.equal(accountBalanceBefore.toString(), props.amount.toString());
+    assert.equal(bridgeBalanceBefore.toString(), "0");
+
+    const wormhole = deployedContracts.wormholeContract!;
+
+    let lastTransferEvent: { to: string; amount: number; from: string } | undefined | null;
+    wrappedAsset.on("Transfer", (to: string, amount: number, from: string) => {
+      console.log("Transfer", { to, amount, from });
+      lastTransferEvent = { to, amount, from };
+    });
+
+    const wormholeImpl = Implementation__factory.connect(wormhole.address, tokenOwner);
+
+    // event LogMessagePublished(address indexed sender, uint64 sequence, uint32 nonce, bytes payload, uint8 consistencyLevel);
+    let lastLogMessageEvent:
+      | { sender: string; sequence: number; nonce: number; payload: string; consistencyLevel: number }
+      | undefined
+      | null;
+    wormholeImpl.on(
+      "LogMessagePublished",
+      (sender: string, sequence: number, nonce: number, payload: string, consistencyLevel: number) => {
+        lastLogMessageEvent = {
+          sender,
+          sequence,
+          nonce,
+          payload,
+          consistencyLevel,
+        };
+        console.log({ lastLogMessageEvent });
+      }
+    );
+
+    // go deposit
+    await tokenBridge.transferTokens(
+      wrappedAsset.address,
+      props.amount.toString(),
+      "10",
+      await wrappedAsset.nativeContract(),
+      props.fee.toString(), // fee
+      "234" // nonce
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const accountBalanceAfter = await wrappedAsset.balanceOf(tokenOwner.address);
+
+    const bridgeBalanceAfter = await wrappedAsset.balanceOf(tokenBridge.address);
+
+    assert.equal(accountBalanceAfter.toString(), "0");
+
+    assert.equal(bridgeBalanceAfter.toString(), props.amount.toString());
+
+    assert.equal(lastLogMessageEvent!.sender, tokenBridge.address);
+
+    // payload len
+    assert.equal(lastLogMessageEvent!.payload.length - 2, 266);
+
+    // payload id
+    assert.equal(lastLogMessageEvent!.payload.substr(2, 2), "01");
+
+    // amount
+    assert.equal(
+      lastLogMessageEvent!.payload.substr(4, 64),
+      web3.eth.abi.encodeParameter("uint256", new Big(props.amount).div(1e10).toString()).substring(2)
+    );
+
+    const web3_wrappedAssetAddress = buildOfLen(wrappedAsset.address, 32).toString("hex");
+
+    // token
+    assert.equal(
+      lastLogMessageEvent!.payload.substr(68, 64),
+      web3_wrappedAssetAddress
+      // web3.eth.abi.encodeParameter("address", testProps.WETH!).substring(2)
+    );
+
+    // chain id
+    assert.equal(
+      lastLogMessageEvent!.payload.substr(132, 4),
+      web3.eth.abi.encodeParameter("uint16", await deployedContracts.bridgeImplementation!.chainId()).substring(2 + 64 - 4)
+    );
+
+    // to
+    assert.equal("0x" + lastLogMessageEvent!.payload.substr(136, 64), await wrappedAsset.nativeContract());
+
+    // to chain id
+    assert.equal(lastLogMessageEvent!.payload.substr(200, 4), web3.eth.abi.encodeParameter("uint16", 10).substring(2 + 64 - 4));
+
+    // fee
+    assert.equal(
+      lastLogMessageEvent!.payload.substr(204, 64),
+      web3.eth.abi.encodeParameter("uint256", new Big(props.fee).div(1e10).toString()).substring(2)
+    );
+  });
 });
