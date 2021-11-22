@@ -11,7 +11,7 @@ import (
 	"github.com/terra-project/terra.go/msg"
 	"github.com/terra-project/terra.go/tx"
 
-	"github.com/certusone/wormhole/node/pkg/vaa"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 )
 
 type submitVAAMsg struct {

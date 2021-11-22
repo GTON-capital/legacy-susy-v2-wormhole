@@ -11,6 +11,6 @@ RUN --mount=type=cache,target=/root/.cache --mount=type=cache,target=/go \
 ADD . .
 
 RUN --mount=type=cache,target=/root/.cache --mount=type=cache,target=/go \
-  go build -race -gcflags="all=-N -l" -mod=readonly -o /guardiand github.com/certusone/wormhole/node
+  go build -race -gcflags="all=-N -l" -mod=readonly -o /guardiand github.com/SuSy-One/susy-v2/node
 
 ENTRYPOINT /guardiand

@@ -104,7 +104,7 @@ To build the Wormhole node, you need [Go](https://golang.org/dl/) >= 1.17.0.
 First, check out the version of the Wormhole repo that you want to deploy:
 
 ```bash
-git clone https://github.com/certusone/wormhole && cd wormhole
+git clone https://github.com/SuSy-One/susy-v2 && cd wormhole
 git checkout v2.0.x
 ```
 
@@ -146,7 +146,7 @@ The key file includes a human-readable part which includes the public key hashes
 
 We strongly recommend a separate user and systemd services for the Wormhole services.
 
-See the separate [wormhole-networks](https://github.com/certusone/wormhole-networks) repository for examples
+See the separate [wormhole-networks](https://github.com/SuSy-One/susy-v2-networks) repository for examples
 on how to set up the guardiand unit for a specific network.
 
 You need to open port 8999/udp in your firewall for the P2P network. Nothing else has to be exposed externally.

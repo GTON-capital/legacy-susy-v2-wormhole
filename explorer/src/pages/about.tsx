@@ -89,7 +89,7 @@ const HowSection = ({ intl, smScreen }: { intl: IntlShape, smScreen: boolean }) 
           <FormattedMessage id="about.how.body" />
         </Paragraph>
         <OutboundLink
-          href="https://github.com/certusone/wormhole/blob/dev.v2/design/navbar.md"
+          href="https://github.com/SuSy-One/susy-v2/blob/dev.v2/design/navbar.md"
           target="_blank" rel="noopener noreferrer" className="no-external-icon"
         >
           <Button style={{ ...buttonStylesLg, marginBottom: 50 }} size="large">

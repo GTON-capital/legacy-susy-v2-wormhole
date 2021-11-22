@@ -1,6 +1,6 @@
 package common
 
-import "github.com/certusone/wormhole/node/pkg/readiness"
+import "github.com/SuSy-One/susy-v2/node/pkg/readiness"
 
 const (
 	ReadinessEthSyncing    readiness.Component = "ethSyncing"

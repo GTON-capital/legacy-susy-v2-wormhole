@@ -4,17 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/certusone/wormhole/node/pkg/db"
-	publicrpcv1 "github.com/certusone/wormhole/node/pkg/proto/publicrpc/v1"
-	"github.com/certusone/wormhole/node/pkg/publicrpc"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"math"
 	"net"
 	"os"
 	"time"
+
+	"github.com/SuSy-One/susy-v2/node/pkg/db"
+	publicrpcv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/publicrpc/v1"
+	"github.com/SuSy-One/susy-v2/node/pkg/publicrpc"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
@@ -22,10 +23,10 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/certusone/wormhole/node/pkg/common"
-	nodev1 "github.com/certusone/wormhole/node/pkg/proto/node/v1"
-	"github.com/certusone/wormhole/node/pkg/supervisor"
-	"github.com/certusone/wormhole/node/pkg/vaa"
+	"github.com/SuSy-One/susy-v2/node/pkg/common"
+	nodev1 "github.com/SuSy-One/susy-v2/node/pkg/proto/node/v1"
+	"github.com/SuSy-One/susy-v2/node/pkg/supervisor"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 )
 
 type nodePrivilegedService struct {

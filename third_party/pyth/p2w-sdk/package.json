@@ -18,7 +18,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/certusone/wormhole.git"
+        "url": "git+https://github.com/SuSy-One/susy-v2.git"
     },
     "author": "https://certus.one",
     "license": "MIT",
@@ -42,7 +42,7 @@
         "@solana/web3.js": "^1.26.0"
     },
     "bugs": {
-        "url": "https://github.com/certusone/wormhole/issues"
+        "url": "https://github.com/SuSy-One/susy-v2/issues"
     },
-    "homepage": "https://github.com/certusone/wormhole#readme"
+    "homepage": "https://github.com/SuSy-One/susy-v2#readme"
 }

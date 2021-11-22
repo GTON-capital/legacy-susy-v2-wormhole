@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/certusone/wormhole/node/pkg/supervisor"
-	"github.com/certusone/wormhole/node/pkg/vaa"
+	"github.com/SuSy-One/susy-v2/node/pkg/supervisor"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 	"go.uber.org/zap"
 	"google.golang.org/api/option"
 

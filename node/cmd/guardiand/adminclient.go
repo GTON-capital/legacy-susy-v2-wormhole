@@ -3,18 +3,19 @@ package guardiand
 import (
 	"context"
 	"fmt"
-	publicrpcv1 "github.com/certusone/wormhole/node/pkg/proto/publicrpc/v1"
-	"github.com/spf13/pflag"
 	"io/ioutil"
 	"log"
 	"time"
+
+	publicrpcv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/publicrpc/v1"
+	"github.com/spf13/pflag"
 
 	"github.com/spf13/cobra"
 	"github.com/status-im/keycard-go/hexutils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/prototext"
 
-	nodev1 "github.com/certusone/wormhole/node/pkg/proto/node/v1"
+	nodev1 "github.com/SuSy-One/susy-v2/node/pkg/proto/node/v1"
 )
 
 var (

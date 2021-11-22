@@ -142,4 +142,4 @@ We allow any node on the network to request state synchronization, which could b
 
 Rate-limiting and blacklisting mechanism can be implemented to enable guardians to respond to such attacks.
 
-(this assumes that libp2p itself is safe against pubsub flooding by non-guardian nodes - this an open question tracked in https://github.com/certusone/wormhole/issues/22 as well as the [official libp2p docs](https://docs.libp2p.io/concepts/security-considerations/)).
+(this assumes that libp2p itself is safe against pubsub flooding by non-guardian nodes - this an open question tracked in https://github.com/SuSy-One/susy-v2/issues/22 as well as the [official libp2p docs](https://docs.libp2p.io/concepts/security-considerations/)).

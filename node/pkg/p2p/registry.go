@@ -1,9 +1,10 @@
 package p2p
 
 import (
-	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
-	"github.com/certusone/wormhole/node/pkg/vaa"
 	"sync"
+
+	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 )
 
 // The p2p package implements a simple global metrics registry singleton for node status values transmitted on-chain.

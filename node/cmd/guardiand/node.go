@@ -10,7 +10,7 @@ import (
 	"path"
 	"syscall"
 
-	"github.com/certusone/wormhole/node/pkg/db"
+	"github.com/SuSy-One/susy-v2/node/pkg/db"
 	"github.com/gagliardetto/solana-go/rpc"
 
 	solana_types "github.com/gagliardetto/solana-go"
@@ -26,17 +26,17 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 
-	"github.com/certusone/wormhole/node/pkg/common"
-	"github.com/certusone/wormhole/node/pkg/devnet"
-	"github.com/certusone/wormhole/node/pkg/ethereum"
-	"github.com/certusone/wormhole/node/pkg/p2p"
-	"github.com/certusone/wormhole/node/pkg/processor"
-	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
-	"github.com/certusone/wormhole/node/pkg/readiness"
-	"github.com/certusone/wormhole/node/pkg/reporter"
-	solana "github.com/certusone/wormhole/node/pkg/solana"
-	"github.com/certusone/wormhole/node/pkg/supervisor"
-	"github.com/certusone/wormhole/node/pkg/vaa"
+	"github.com/SuSy-One/susy-v2/node/pkg/common"
+	"github.com/SuSy-One/susy-v2/node/pkg/devnet"
+	"github.com/SuSy-One/susy-v2/node/pkg/ethereum"
+	"github.com/SuSy-One/susy-v2/node/pkg/p2p"
+	"github.com/SuSy-One/susy-v2/node/pkg/processor"
+	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
+	"github.com/SuSy-One/susy-v2/node/pkg/readiness"
+	"github.com/SuSy-One/susy-v2/node/pkg/reporter"
+	solana "github.com/SuSy-One/susy-v2/node/pkg/solana"
+	"github.com/SuSy-One/susy-v2/node/pkg/supervisor"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 
 	ipfslog "github.com/ipfs/go-log/v2"
 )
@@ -297,12 +297,12 @@ func runNode(cmd *cobra.Command, args []string) {
 	if *dataDir == "" {
 		logger.Fatal("Please specify --dataDir")
 	}
-// 	if *ethRPC == "" {
-// 		logger.Fatal("Please specify --ethRPC")
-// 	}
-// 	if *ethContract == "" {
-// 		logger.Fatal("Please specify --ethContract")
-// 	}
+	// 	if *ethRPC == "" {
+	// 		logger.Fatal("Please specify --ethRPC")
+	// 	}
+	// 	if *ethContract == "" {
+	// 		logger.Fatal("Please specify --ethContract")
+	// 	}
 	// if *bscRPC == "" {
 	// 	logger.Fatal("Please specify --bscRPC")
 	// }
