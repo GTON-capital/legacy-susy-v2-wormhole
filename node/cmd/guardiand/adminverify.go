@@ -1,10 +1,10 @@
 package guardiand
 
 import (
-	"fmt"
-	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 	"io/ioutil"
 	"log"
+
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/spf13/cobra"

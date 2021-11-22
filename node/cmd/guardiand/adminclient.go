@@ -4,15 +4,14 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	publicrpcv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/publicrpc/v1"
-	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/spf13/pflag"
 	"io/ioutil"
 	"log"
 	"strconv"
 	"strings"
 	"time"
+
+	publicrpcv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/publicrpc/v1"
+	"github.com/spf13/pflag"
 
 	"github.com/spf13/cobra"
 	"github.com/status-im/keycard-go/hexutils"

@@ -3,6 +3,7 @@ package db
 import (
 	"errors"
 	"fmt"
+
 	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 	"github.com/dgraph-io/badger/v3"
 )

@@ -2,6 +2,8 @@ package guardiand
 
 import (
 	"fmt"
+	"net"
+
 	"github.com/SuSy-One/susy-v2/node/pkg/common"
 	"github.com/SuSy-One/susy-v2/node/pkg/db"
 	publicrpcv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/publicrpc/v1"
@@ -9,7 +11,6 @@ import (
 	"github.com/SuSy-One/susy-v2/node/pkg/supervisor"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"net"
 )
 
 func publicrpcServiceRunnable(logger *zap.Logger, listenAddr string, db *db.Database, gst *common.GuardianSetState) (supervisor.Runnable, *grpc.Server, error) {

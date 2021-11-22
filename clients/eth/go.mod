@@ -51,4 +51,4 @@ require (
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 )
 
-replace github.com/certusone/wormhole/node => ../../node
+replace github.com/SuSy-One/susy-v2/node => ../../node

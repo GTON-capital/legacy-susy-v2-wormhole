@@ -3,7 +3,6 @@ package p2p
 import (
 	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
 	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
-	"github.com/SuSy-One/susy-v2/node/pkg/version"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/prometheus/client_golang/prometheus"

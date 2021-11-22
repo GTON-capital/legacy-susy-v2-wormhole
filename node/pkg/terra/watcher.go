@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/SuSy-One/susy-v2/node/pkg/p2p"
-	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/SuSy-One/susy-v2/node/pkg/p2p"
+	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -148,7 +149,7 @@ func (e *Watcher) Run(ctx context.Context) error {
 			logger.Info("current Terra height", zap.Int64("block", latestBlock.Int()))
 			currentTerraHeight.Set(float64(latestBlock.Int()))
 			p2p.DefaultRegistry.SetNetworkStats(vaa.ChainIDTerra, &gossipv1.Heartbeat_Network{
-				Height:        latestBlock.Int(),
+				Height:          latestBlock.Int(),
 				ContractAddress: e.contract,
 			})
 		}
