@@ -68,6 +68,9 @@ var (
 	polygonRPC      *string
 	polygonContract *string
 
+	ethRopstenRPC      *string
+	ethRopstenContract *string
+
 	terraWS       *string
 	terraLCD      *string
 	terraContract *string
@@ -78,6 +81,7 @@ var (
 	logLevel *string
 
 	unsafeDevMode   *bool
+	testnetMode     *bool
 	devNumGuardians *uint
 	nodeName        *string
 
@@ -124,6 +128,9 @@ func init() {
 	polygonRPC = NodeCmd.Flags().String("polygonRPC", "", "Polygon RPC URL")
 	polygonContract = NodeCmd.Flags().String("polygonContract", "", "Polygon contract address")
 
+	ethRopstenRPC = NodeCmd.Flags().String("ethRopstenRPC", "", "Ethereum Ropsten RPC URL")
+	ethRopstenContract = NodeCmd.Flags().String("ethRopstenContract", "", "Ethereum Ropsten contract address")
+
 	terraWS = NodeCmd.Flags().String("terraWS", "", "Path to terrad root for websocket connection")
 	terraLCD = NodeCmd.Flags().String("terraLCD", "", "Path to LCD service root for http calls")
 	terraContract = NodeCmd.Flags().String("terraContract", "", "Wormhole contract address on Terra blockchain")
@@ -134,6 +141,7 @@ func init() {
 	logLevel = NodeCmd.Flags().String("logLevel", "info", "Logging level (debug, info, warn, error, dpanic, panic, fatal)")
 
 	unsafeDevMode = NodeCmd.Flags().Bool("unsafeDevMode", false, "Launch node in unsafe, deterministic devnet mode")
+	testnetMode = NodeCmd.Flags().Bool("testnetMode", false, "Launch node in testnet mode (enables testnet-only features like Ropsten)")
 	devNumGuardians = NodeCmd.Flags().Uint("devNumGuardians", 5, "Number of devnet guardians to include in guardian set")
 	nodeName = NodeCmd.Flags().String("nodeName", "", "Node name to announce in gossip heartbeats")
 
@@ -248,6 +256,9 @@ func runNode(cmd *cobra.Command, args []string) {
 	readiness.RegisterComponent(common.ReadinessTerraSyncing)
 	readiness.RegisterComponent(common.ReadinessBSCSyncing)
 	readiness.RegisterComponent(common.ReadinessPolygonSyncing)
+	if *testnetMode {
+		readiness.RegisterComponent(common.ReadinessEthRopstenSyncing)
+	}
 
 	if *statusAddr != "" {
 		// Use a custom routing instead of using http.DefaultServeMux directly to avoid accidentally exposing packages
@@ -330,6 +341,21 @@ func runNode(cmd *cobra.Command, args []string) {
 	if *polygonContract == "" {
 		logger.Fatal("Please specify --polygonContract")
 	}
+	if *testnetMode {
+		if *ethRopstenRPC == "" {
+			logger.Fatal("Please specify --ethRopstenRPC")
+		}
+		if *ethRopstenContract == "" {
+			logger.Fatal("Please specify --ethRopstenContract")
+		}
+	} else {
+		if *ethRopstenRPC != "" {
+			logger.Fatal("Please do not specify --ethRopstenRPC in non-testnet mode")
+		}
+		if *ethRopstenContract != "" {
+			logger.Fatal("Please do not specify --ethRopstenContract in non-testnet mode")
+		}
+	}
 	if *nodeName == "" {
 		logger.Fatal("Please specify --nodeName")
 	}
@@ -397,6 +423,7 @@ func runNode(cmd *cobra.Command, args []string) {
 	ethContractAddr := eth_common.HexToAddress(*ethContract)
 	bscContractAddr := eth_common.HexToAddress(*bscContract)
 	polygonContractAddr := eth_common.HexToAddress(*polygonContract)
+	ethRopstenContractAddr := eth_common.HexToAddress(*ethRopstenContract)
 	solAddress, err := solana_types.PublicKeyFromBase58(*solanaContract)
 	if err != nil {
 		logger.Fatal("invalid Solana contract address", zap.Error(err))
@@ -528,6 +555,13 @@ func runNode(cmd *cobra.Command, args []string) {
 		if err := supervisor.Run(ctx, "polygonwatch",
 			ethereum.NewEthWatcher(*polygonRPC, polygonContractAddr, "polygon", common.ReadinessPolygonSyncing, vaa.ChainIDPolygon, lockC, nil).Run); err != nil {
 			return err
+		}
+
+		if *testnetMode {
+			if err := supervisor.Run(ctx, "ethropstenwatch",
+				ethereum.NewEthWatcher(*ethRopstenRPC, ethRopstenContractAddr, "ethropsten", common.ReadinessEthRopstenSyncing, vaa.ChainIDEthereumRopsten, lockC, setC).Run); err != nil {
+				return err
+			}
 		}
 
 		// Start Terra watcher only if configured
