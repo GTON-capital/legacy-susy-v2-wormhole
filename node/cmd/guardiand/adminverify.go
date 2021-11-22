@@ -1,8 +1,6 @@
 package guardiand
 
 import (
-	"fmt"
-	"github.com/certusone/wormhole/node/pkg/vaa"
 	"io/ioutil"
 	"log"
 

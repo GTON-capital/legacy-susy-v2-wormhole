@@ -3,17 +3,18 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/certusone/wormhole/node/pkg/ethereum/abi"
-	"github.com/certusone/wormhole/node/pkg/vaa"
+	"math"
+	"os"
+	"strconv"
+
+	"github.com/SuSy-One/susy-v2/node/pkg/ethereum/abi"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/cobra"
-	"math"
-	"os"
-	"strconv"
 )
 
 // rootCmd represents the base command when called without any subcommands

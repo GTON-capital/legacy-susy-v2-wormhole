@@ -215,7 +215,7 @@ function App() {
             ) : (
               <Tooltip title="View the FAQ">
                 <IconButton
-                  href="https://docs.wormholenetwork.com/wormhole/faqs"
+                  href="https://github.com/SuSy-One/susy-v2"
                   target="_blank"
                   rel="noopener noreferrer"
                   size="small"

@@ -323,39 +323,18 @@ func runNode(cmd *cobra.Command, args []string) {
 	if *dataDir == "" {
 		logger.Fatal("Please specify --dataDir")
 	}
-	if *ethRPC == "" {
-		logger.Fatal("Please specify --ethRPC")
-	}
-	if *ethContract == "" {
-		logger.Fatal("Please specify --ethContract")
-	}
-	if *bscRPC == "" {
-		logger.Fatal("Please specify --bscRPC")
-	}
-	if *bscContract == "" {
-		logger.Fatal("Please specify --bscContract")
-	}
-	if *polygonRPC == "" {
-		logger.Fatal("Please specify --polygonRPC")
-	}
-	if *polygonContract == "" {
-		logger.Fatal("Please specify --polygonContract")
-	}
-	if *testnetMode {
-		if *ethRopstenRPC == "" {
-			logger.Fatal("Please specify --ethRopstenRPC")
-		}
-		if *ethRopstenContract == "" {
-			logger.Fatal("Please specify --ethRopstenContract")
-		}
-	} else {
-		if *ethRopstenRPC != "" {
-			logger.Fatal("Please do not specify --ethRopstenRPC in non-testnet mode")
-		}
-		if *ethRopstenContract != "" {
-			logger.Fatal("Please do not specify --ethRopstenContract in non-testnet mode")
-		}
-	}
+	// 	if *ethRPC == "" {
+	// 		logger.Fatal("Please specify --ethRPC")
+	// 	}
+	// 	if *ethContract == "" {
+	// 		logger.Fatal("Please specify --ethContract")
+	// 	}
+	// if *bscRPC == "" {
+	// 	logger.Fatal("Please specify --bscRPC")
+	// }
+	// if *bscContract == "" {
+	// 	logger.Fatal("Please specify --bscContract")
+	// }
 	if *nodeName == "" {
 		logger.Fatal("Please specify --nodeName")
 	}

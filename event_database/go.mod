@@ -1,4 +1,4 @@
-module github.com/certusone/wormhole/event_database
+module github.com/SuSy-One/susy-v2/events_database
 
 go 1.17
 
