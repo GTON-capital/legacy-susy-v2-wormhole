@@ -9,7 +9,7 @@ import {
 import {
   getForeignAssetEth as getForeignAssetEthNFT,
   getForeignAssetSol as getForeignAssetSolNFT,
-} from "@certusone/wormhole-sdk/lib/nft_bridge";
+} from "@certusone/wormhole-sdk/lib/esm/nft_bridge";
 import { BigNumber } from "@ethersproject/bignumber";
 import { arrayify } from "@ethersproject/bytes";
 import { Connection } from "@solana/web3.js";
