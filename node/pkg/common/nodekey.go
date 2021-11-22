@@ -4,12 +4,32 @@ import (
 	"fmt"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
 )
 
-func GetOrCreateNodeKey(logger *zap.Logger, path string) (crypto.PrivKey, error) {
+var NodeKeygenCmd = &cobra.Command{
+	Use:   "node-keygen [KEYFILE]",
+	Short: "Create node key at the specified path",
+	Run:   runNodeKeygen,
+	Args:  cobra.ExactArgs(1),
+}
+
+func runNodeKeygen(cmd *cobra.Command, args []string) {
+	key, err := getOrCreateNodeKey(zap.L(), args[0])
+	if err != nil {
+		panic(err)
+	}
+	peerID, err := peer.IDFromPrivateKey(key)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("PeerID: %s\n", peerID.String())
+
+}
+func getOrCreateNodeKey(logger *zap.Logger, path string) (p2pcrypto.PrivKey, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
