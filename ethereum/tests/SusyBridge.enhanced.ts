@@ -311,19 +311,19 @@ describe("Tests: SuSyBridge", () => {
       web3.eth.abi.encodeParameter("bytes32", props.bridgeGovernanceContract).substring(2),
     ];
 
-    console.log("register chain", {
-      dataRaw,
-      dataDict: {
-        act: "0x" + moduleNameHex,
-        moduleNameHex,
-        chainAction: "01",
-        emitterChainId: props.emitterChainId,
-        bridgeChainId: web3.eth.abi.encodeParameter("uint16", props.bridgeChainId).substring(2 + (64 - 4)),
-        bridgeGovernanceContract: web3.eth.abi.encodeParameter("bytes32", props.bridgeGovernanceContract).substring(2),
-      },
-      overrideProps,
-      testProps,
-    });
+    // console.log("register chain", {
+    //   dataRaw,
+    //   dataDict: {
+    //     act: "0x" + moduleNameHex,
+    //     moduleNameHex,
+    //     chainAction: "01",
+    //     emitterChainId: props.emitterChainId,
+    //     bridgeChainId: web3.eth.abi.encodeParameter("uint16", props.bridgeChainId).substring(2 + (64 - 4)),
+    //     bridgeGovernanceContract: web3.eth.abi.encodeParameter("bytes32", props.bridgeGovernanceContract).substring(2),
+    //   },
+    //   overrideProps,
+    //   testProps,
+    // });
 
     const data = dataRaw.join("");
 
@@ -682,34 +682,29 @@ describe("Tests: SuSyBridge", () => {
     await runDepositFundsTest(result);
   });
 
-  // this test emulates destination operation
-  // like, some funds were locked on other chain
-  // and this test validates correct behaviour on
-  // destination chain -> mint operation
-  it("test behaviour as destination chain (mint): (should transfer out locked assets for a valid transfer vm)", async () => {
-    const receiver = Wallet.createRandom();
-
-    await runRegisterChainTest(deployedContracts);
-
-    const caseProps = { amount: new Big(10).mul(1e18), receiverChain: 137, receiverAddress: receiver.address };
-
-    const result = await deployWrappedToken({ chainId: caseProps.receiverChain });
-
-    await runTokenAttestationTest(deployedContracts, result, testProps);
-
+  async function runMintCompleteTransferTest(
+    _deployedContracts: DeployedContracts,
+    result: DeployedTokenResponse,
+    props: Partial<TestProps>,
+    caseProps: {
+      amount: Big;
+      receiverAddress: string;
+      fee?: string;
+    }
+  ) {
     let { wrappedAsset, tokenOwner } = result;
 
     wrappedAsset = wrappedAsset.connect(tokenOwner);
 
-    const tokenBridge = deployedContracts.bridgeImplementation!;
+    const tokenBridge = _deployedContracts.bridgeImplementation!;
 
-    await wrappedAsset.mint(tokenBridge.address, caseProps.amount.toString());
+    await wrappedAsset.mint(tokenBridge.address, caseProps.amount.toFixed());
 
     const accountBalanceBefore = await wrappedAsset.balanceOf(tokenOwner.address);
     const bridgeBalanceBefore = await wrappedAsset.balanceOf(tokenBridge.address);
 
     assert.equal(accountBalanceBefore.toString(), "0");
-    assert.equal(bridgeBalanceBefore.toString(), caseProps.amount.toString());
+    assert.equal(bridgeBalanceBefore.toString(), caseProps.amount.toFixed());
 
     const dataRaw = [
       "0x0" + BridgeStructs_PayloadEnum.Transfer,
@@ -724,7 +719,7 @@ describe("Tests: SuSyBridge", () => {
       // receiving chain
       web3.eth.abi.encodeParameter("uint16", await tokenBridge.chainId()).substring(2 + (64 - 4)),
       // fee
-      "0000000000000000000000000000000000000000000000000000000000000000",
+      caseProps.fee ?? "0000000000000000000000000000000000000000000000000000000000000000",
     ];
 
     // console.log({ dataRaw });
@@ -733,8 +728,8 @@ describe("Tests: SuSyBridge", () => {
     const vm = await signAndEncodeVM(
       0,
       0,
-      testProps.bridgeChainId,
-      testProps.bridgeGovernanceContract,
+      props.bridgeChainId!,
+      props.bridgeGovernanceContract!,
       0,
       data,
       guardianSet.privateKeysList,
@@ -750,7 +745,25 @@ describe("Tests: SuSyBridge", () => {
 
     assert.equal(accountBalanceAfter.toString(), "0");
 
-    assert.equal(bridgeBalanceAfter.toString(), caseProps.amount.toString());
+    assert.equal(bridgeBalanceAfter.toString(), caseProps.amount.toFixed());
+  }
+
+  // this test emulates destination operation
+  // like, some funds were locked on other chain
+  // and this test validates correct behaviour on
+  // destination chain -> mint operation
+  it("test behaviour as destination chain (mint): (should transfer out locked assets for a valid transfer vm)", async () => {
+    const receiver = Wallet.createRandom();
+
+    await runRegisterChainTest(deployedContracts);
+
+    const caseProps = { amount: new Big(10).mul(1e18), receiverChain: 137, receiverAddress: receiver.address };
+
+    const result = await deployWrappedToken({ chainId: caseProps.receiverChain });
+
+    await runTokenAttestationTest(deployedContracts, result, testProps);
+
+    await runMintCompleteTransferTest(deployedContracts, result, testProps, caseProps);
   });
 
   it("should revert on transfer out of a total of > max(uint64) tokens", async () => {
@@ -826,7 +839,7 @@ describe("Tests: SuSyBridge", () => {
       chainId: number;
       implSlot: string;
       deployment: DeployedContracts;
-      wrappedAsset?: DeployedTokenResponse;
+      tokenDeployment?: DeployedTokenResponse;
       wrapAssetFromChainIds: number[];
     };
 
@@ -884,16 +897,18 @@ describe("Tests: SuSyBridge", () => {
      *
      *
      * Token flow:
-     *                 – – – – – > (Polygon)
+     *                 –---------> (Polygon)
      *              /               /   \
      *            /               /      \
-     * (Solana) – – – – – –> (Harmony)    \
+     * (Solana) –----------> (Harmony)    \
      *           \               \       /
      *            \               \    /
-     *              – – – – -> (Fantom)
+     *              ----------> (Fantom)
      *
      *
-     *
+     * Legend:
+     *  ----- - lock/unlock token flow
+     *  – – – - mint/lock token flow
      */
 
     const overrideProps = (cfg: ChainCfg): Partial<TestProps> => ({
@@ -906,7 +921,7 @@ describe("Tests: SuSyBridge", () => {
       emitterChainId: buildOfLen(web3.utils.numberToHex(cfg.chainId), 2).toString("hex"),
     });
 
-    console.log("=======================================================================");
+    console.log("\n=================================== Mesh testing ===================================\n");
 
     await runInitialMigration(configs.Polygon.deployment, overrideProps(configs.Polygon));
     await runInitialMigration(configs.Harmony.deployment, overrideProps(configs.Harmony));
@@ -916,58 +931,61 @@ describe("Tests: SuSyBridge", () => {
     await runRegisterChainTest(configs.Harmony.deployment, overrideProps(configs.Harmony));
     await runRegisterChainTest(configs.Fantom.deployment, overrideProps(configs.Fantom));
 
-    configs.Polygon.wrappedAsset = await tokenDeployFn(configs.Polygon, tokenConfig, overrideProps(configs.Polygon));
-    configs.Harmony.wrappedAsset = await tokenDeployFn(configs.Harmony, tokenConfig, overrideProps(configs.Harmony));
-    configs.Fantom.wrappedAsset = await tokenDeployFn(configs.Fantom, tokenConfig, overrideProps(configs.Fantom));
+    configs.Polygon.tokenDeployment = await tokenDeployFn(configs.Polygon, tokenConfig, overrideProps(configs.Polygon));
+    configs.Harmony.tokenDeployment = await tokenDeployFn(configs.Harmony, tokenConfig, overrideProps(configs.Harmony));
+    configs.Fantom.tokenDeployment = await tokenDeployFn(configs.Fantom, tokenConfig, overrideProps(configs.Fantom));
 
-    // imitate mint from Solana
+    const toDecimals = (amt: Big) => amt.mul(new Big(10).pow(tokenConfig.decimals!));
+    const globalAssetInfo = {
+      initSupply: toDecimals(new Big(100_000)),
+      polygonReceiver: guardianSet.guardians[1],
+      harmonyReceiver: guardianSet.guardians[2],
+      fantomReceiver: guardianSet.guardians[3],
+    };
+
+    /**
+     * Test Mesh flow:
+     *  1. Locked 100,000 SUSY on Solana => Minted 100,000 SUSY on Polygon
+     *  2. Transfer 50,000 SUSY from Polygon to Harmony (.1 - lock, .2 - mint)
+     *  3. Transfer 25,000 SUSY from Harmony to Fantom (.1 - lock, .2 - mint)
+     */
+
+    // 1. initial mint occured on Polygon for instance
+    await runMintCompleteTransferTest(
+      configs.Polygon.deployment,
+      configs.Polygon.tokenDeployment!,
+      overrideProps(configs.Polygon),
+      {
+        amount: globalAssetInfo.initSupply,
+        receiverAddress: globalAssetInfo.polygonReceiver.address,
+      }
+    );
+
+    const lockFunds = async (cfg: ChainCfg, amount: Big, recipientChain: string, receiverAddress: string, from: Wallet) => {
+      const asset = cfg.tokenDeployment!.wrappedAsset!.connect(from);
+      const bridge = cfg.deployment.bridgeImplementation!.connect(from);
+
+      await asset.approve(bridge.address, amount.toFixed());
+
+      // 1.1
+      await bridge.transferTokens(
+        asset.address,
+        amount.toFixed(),
+        recipientChain.toString(),
+        web3.eth.abi.encodeParameter("address", receiverAddress),
+        "0",
+        "235"
+      );
+    };
+
+    //2.1
+    await lockFunds(
+      configs.Polygon,
+      toDecimals(new Big(50_000)),
+      String(configs.Harmony.chainId),
+      globalAssetInfo.harmonyReceiver.address,
+      globalAssetInfo.polygonReceiver
+    );
   });
 
-  // it("should mint bridged assets wrappers on transfer from another chain and handle fees correctly", async () => {
-  //   const receiver = Wallet.createRandom();
-
-  //   await runRegisterChainTest();
-
-  //   const caseProps = { amount: new Big(10).mul(1e18), receiverChain: 137, receiverAddress: receiver.address };
-
-  //   const result = await deployWrappedToken({ chainId: caseProps.receiverChain });
-  //   await runTokenAttestationTest(result);
-
-  //   let { wrappedAsset, tokenOwner } = result;
-
-  //   wrappedAsset = wrappedAsset.connect(tokenOwner);
-
-  //   await wrappedAsset.mint(tokenOwner.address, caseProps.amount.toString());
-
-  //   const bridgeImpl = deployedContracts.bridgeImplementation!;
-
-  //   const web3_wrappedAssetChainId = web3.eth.abi.encodeParameter("uint16", await wrappedAsset.chainId()).substring(2 + (64 - 4));
-  //   const web3_wrappedAssetAddress = buildOfLen(wrappedAsset.address, 32).toString("hex");
-
-  //   const wrappedAssetRetrieved = await bridgeImpl.wrappedAsset("0x" + web3_wrappedAssetChainId, "0x" + web3_wrappedAssetAddress);
-
-  //   await wrappedAsset.approve(bridgeImpl.address, caseProps.amount.toString());
-
-  //   const accountBalanceBefore = await wrappedAsset.balanceOf(tokenOwner.address);
-
-  //   assert.equal(accountBalanceBefore.toString(), caseProps.amount.toString());
-
-  //   await bridgeImpl.transferTokens(
-  //     wrappedAssetRetrieved,
-  //     caseProps.amount.toString(),
-  //     caseProps.receiverChain.toString(),
-  //     web3.eth.abi.encodeParameter("address", caseProps.receiverAddress),
-  //     "0",
-  //     "235"
-  //   );
-
-  //   const accountBalanceAfter = await wrappedAsset.balanceOf(tokenOwner.address);
-  //   assert.equal(accountBalanceAfter.toString(), "0");
-
-  //   const bridgeBalanceAfter = await wrappedAsset.balanceOf(bridgeImpl.address);
-  //   assert.equal(bridgeBalanceAfter.toString(), "0");
-
-  //   const totalSupplyAfter = await wrappedAsset.totalSupply();
-  //   assert.equal(totalSupplyAfter.toString(), "0");
-  // });
 });
