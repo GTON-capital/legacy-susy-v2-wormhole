@@ -1,0 +1,23 @@
+FROM ubuntu:18.04
+
+COPY --from=susy:nodev2 /node/build/bin/guardiand /bin/susy
+COPY entry.sh .
+
+RUN apt-get update && \
+      apt-get -y install sudo apt-utils
+
+RUN ls -la /bin | grep susy
+
+RUN useradd -m docker && echo "docker:docker" | chpasswd && adduser docker sudo
+RUN useradd -ms /bin/bash wormhole
+
+RUN  useradd admin && echo "admin:admin" | chpasswd && adduser admin sudo
+
+ENV WORKSPACE="/etc/workspace"
+ENV CFG_PATH="/etc/workspace/guardian.yaml"
+ENV NETW="127.0.0.1"
+ENV RPC_PORT="8999"
+
+VOLUME /etc/workspace
+
+ENTRYPOINT ["/bin/bash", "entry.sh"]
