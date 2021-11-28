@@ -11,18 +11,29 @@ susy keygen --desc "Guardian Key" "$workspace/$guardiankey"
 
 PEER_ID=$(sudo susy node-keygen "$workspace/$nodekey" | tail -n 1 | awk '{ print $2 }')
 
-echo $PEER_ID
+echo "peer id: $PEER_ID";
 
 chmod 666 $workspace/$nodekey
 chmod 666 $workspace/$guardiankey
 
-echo $CFG_PATH
+echo "cfg path is: $CFG_PATH";
+
+bootstrap_list=/dns4/$NETW/udp/$RPC_PORT/quic/p2p/$PEER_ID;
+
+if [ $BOOTSTRAP_LIST != '0' ]
+then
+	echo "concatenating additional peers...":
+	bootstrap_list="$bootstrap_list,$BOOTSTRAP_LIST";
+fi
+
+echo "BOOTSTRAP_LIST: $BOOTSTRAP_LIST";
+echo "bootstrap_list $bootstrap_list";
 
 su wormhole -c "susy node \
 	--bootstrap \
-	/dns4/$NETW/udp/$RPC_PORT/quic/p2p/$PEER_ID \
+	\"$bootstrap_list\" \
 	--network \
-	/wormhole/testnet/2 \
+        \"$NETWORK_IDENTIFIER\" \
 	--solanaContract \
 	Brdguy7BmNB4qwEbcqqMbyV5CyJd2sxQNUn6NEpMSsUb \
 	--adminSocket \
