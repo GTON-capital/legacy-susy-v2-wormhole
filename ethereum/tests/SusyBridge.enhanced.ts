@@ -68,6 +68,36 @@ describe("Tests: SuSyBridge", () => {
     GenericAction: 4,
   };
 
+  class VMArgsEncoder {
+    static instance = new VMArgsEncoder();
+
+    completeTransferMethodEncode(
+      amount: Big,
+      wrappedAssetAddr: string,
+      wrappedAssetChainId: number,
+      receiverAddr: string,
+      receiverChainId: number,
+      fee: string
+    ): string[] {
+      return [
+        "0x0" + BridgeStructs_PayloadEnum.Transfer,
+        // amount
+        web3.eth.abi.encodeParameter("uint256", amount.div(1e10).toFixed()).substring(2),
+        // tokenaddress
+        web3.eth.abi.encodeParameter("address", wrappedAssetAddr).substr(2),
+        // tokenchain
+        web3.eth.abi.encodeParameter("uint16", wrappedAssetChainId).substring(2 + (64 - 4)),
+        // receiver
+        web3.eth.abi.encodeParameter("address", receiverAddr).substr(2),
+        // receiving chain
+        web3.eth.abi.encodeParameter("uint16", receiverChainId).substring(2 + (64 - 4)),
+        // fee
+        // caseProps.fee ?? "0000000000000000000000000000000000000000000000000000000000000000",
+        buildOfLen(fee, 32).toString("hex"),
+      ];
+    }
+  }
+
   class GuardianSet {
     n: number;
     guardians: Wallet[];
@@ -310,7 +340,7 @@ describe("Tests: SuSyBridge", () => {
       web3.eth.abi.encodeParameter("uint16", props.bridgeChainId).substring(2 + (64 - 4)),
       web3.eth.abi.encodeParameter("bytes32", props.bridgeGovernanceContract).substring(2),
     ];
-    
+
     const data = dataRaw.join("");
 
     const vm = await signAndEncodeVM(
@@ -692,24 +722,34 @@ describe("Tests: SuSyBridge", () => {
     assert.equal(accountBalanceBefore.toString(), "0");
     assert.equal(bridgeBalanceBefore.toString(), caseProps.amount.toFixed());
 
-    const dataRaw = [
-      "0x0" + BridgeStructs_PayloadEnum.Transfer,
-      // amount
-      web3.eth.abi.encodeParameter("uint256", caseProps.amount.div(1e10).toString()).substring(2),
-      // tokenaddress
-      web3.eth.abi.encodeParameter("address", wrappedAsset.address).substr(2),
-      // tokenchain
-      web3.eth.abi.encodeParameter("uint16", await wrappedAsset.chainId()).substring(2 + (64 - 4)),
-      // receiver
-      web3.eth.abi.encodeParameter("address", caseProps.receiverAddress).substr(2),
-      // receiving chain
-      web3.eth.abi.encodeParameter("uint16", await tokenBridge.chainId()).substring(2 + (64 - 4)),
-      // fee
-      caseProps.fee ?? "0000000000000000000000000000000000000000000000000000000000000000",
-    ];
+    // const dataRaw = [
+    //   "0x0" + BridgeStructs_PayloadEnum.Transfer,
+    //   // amount
+    //   web3.eth.abi.encodeParameter("uint256", caseProps.amount.div(1e10).toString()).substring(2),
+    //   // tokenaddress
+    //   web3.eth.abi.encodeParameter("address", wrappedAsset.address).substr(2),
+    //   // tokenchain
+    //   web3.eth.abi.encodeParameter("uint16", await wrappedAsset.chainId()).substring(2 + (64 - 4)),
+    //   // receiver
+    //   web3.eth.abi.encodeParameter("address", caseProps.receiverAddress).substr(2),
+    //   // receiving chain
+    //   web3.eth.abi.encodeParameter("uint16", await tokenBridge.chainId()).substring(2 + (64 - 4)),
+    //   // fee
+    //   caseProps.fee ?? "0000000000000000000000000000000000000000000000000000000000000000",
+    // ];
 
     // console.log({ dataRaw });
-    const data = dataRaw.join("");
+    // const data = dataRaw.join("");
+    const data = VMArgsEncoder.instance
+      .completeTransferMethodEncode(
+        caseProps.amount,
+        wrappedAsset.address,
+        await wrappedAsset.chainId(),
+        caseProps.receiverAddress,
+        await tokenBridge.chainId(),
+        "0x0"
+      )
+      .join("");
 
     const vm = await signAndEncodeVM(
       0,
@@ -953,7 +993,7 @@ describe("Tests: SuSyBridge", () => {
 
       await asset.approve(bridge.address, amount.toFixed());
 
-      // 1.1
+      // 2.1
       await bridge.transferTokens(
         asset.address,
         amount.toFixed(),
@@ -964,6 +1004,48 @@ describe("Tests: SuSyBridge", () => {
       );
     };
 
+    const redeemFunds = async (cfg: ChainCfg, amount: Big, from: Wallet, receiverAddr: string, props: Partial<TestProps>) => {
+      // const asset = cfg.tokenDeployment!.wrappedAsset!.connect(from);
+      const bridge = cfg.deployment.bridgeImplementation!.connect(from);
+
+      // await asset.approve(bridge.address, amount.toFixed());
+
+      const data = VMArgsEncoder.instance
+        .completeTransferMethodEncode(
+          amount,
+          cfg.tokenDeployment!.wrappedAsset.address,
+          await cfg.tokenDeployment!.wrappedAsset.chainId(),
+          receiverAddr,
+          await cfg.deployment.bridgeImplementation!.chainId(),
+          "0x0"
+        )
+        .join("");
+
+      const vm = await signAndEncodeVM(
+        0,
+        0,
+        // web3.utils.numberToHex(await cfg.deployment.bridgeImplementation!.chainId()),
+        // web3.utils.numberToHex(await cfg.deployment.bridgeImplementation!.governanceContract()),
+        props.bridgeChainId!,
+        props.bridgeGovernanceContract!,
+        // web3.utils.numberToHex(await cfg.deployment.bridgeImplementation!.chainId()),
+        // testProps.bridgeGovernanceContract
+        0,
+        data,
+        guardianSet.privateKeysList,
+        0,
+        0
+      );
+
+      // 2.2
+      await bridge.completeTransfer("0x" + vm);
+    };
+
+    await configs.Polygon.tokenDeployment!.wrappedAsset!.mint(
+      globalAssetInfo.polygonReceiver.address,
+      toDecimals(new Big(50_000)).toFixed()
+    );
+
     //2.1
     await lockFunds(
       configs.Polygon,
@@ -972,6 +1054,14 @@ describe("Tests: SuSyBridge", () => {
       globalAssetInfo.harmonyReceiver.address,
       globalAssetInfo.polygonReceiver
     );
-  });
 
+    await redeemFunds(
+      configs.Harmony,
+      toDecimals(new Big(50_000)),
+      globalAssetInfo.harmonyReceiver,
+      globalAssetInfo.harmonyReceiver.address,
+      overrideProps(configs.Harmony)
+    );
+    
+  });
 });
