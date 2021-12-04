@@ -20,6 +20,9 @@ ENV NETW="127.0.0.1"
 ENV RPC_PORT="8999"
 ENV BOOTSTRAP_LIST=$BOOTSTRAP_LIST
 
+# aka CLUSTER (from sdk)
+ENV SOLANA_CONTRACT='Brdguy7BmNB4qwEbcqqMbyV5CyJd2sxQNUn6NEpMSsUb'
+
 VOLUME /etc/workspace
 
 ENTRYPOINT ["/bin/bash", "entry.sh"]

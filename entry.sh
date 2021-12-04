@@ -35,7 +35,7 @@ su wormhole -c "susy node \
 	--network \
         \"$NETWORK_IDENTIFIER\" \
 	--solanaContract \
-	Brdguy7BmNB4qwEbcqqMbyV5CyJd2sxQNUn6NEpMSsUb \
+	\"$SOLANA_CONTRACT\"\
 	--adminSocket \
 	$workspace/admin.socket \
 	--dataDir \
