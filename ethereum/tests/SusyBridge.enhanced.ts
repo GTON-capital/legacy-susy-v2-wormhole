@@ -310,21 +310,7 @@ describe("Tests: SuSyBridge", () => {
       web3.eth.abi.encodeParameter("uint16", props.bridgeChainId).substring(2 + (64 - 4)),
       web3.eth.abi.encodeParameter("bytes32", props.bridgeGovernanceContract).substring(2),
     ];
-
-    // console.log("register chain", {
-    //   dataRaw,
-    //   dataDict: {
-    //     act: "0x" + moduleNameHex,
-    //     moduleNameHex,
-    //     chainAction: "01",
-    //     emitterChainId: props.emitterChainId,
-    //     bridgeChainId: web3.eth.abi.encodeParameter("uint16", props.bridgeChainId).substring(2 + (64 - 4)),
-    //     bridgeGovernanceContract: web3.eth.abi.encodeParameter("bytes32", props.bridgeGovernanceContract).substring(2),
-    //   },
-    //   overrideProps,
-    //   testProps,
-    // });
-
+    
     const data = dataRaw.join("");
 
     const vm = await signAndEncodeVM(

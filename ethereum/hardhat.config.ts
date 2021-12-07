@@ -19,6 +19,14 @@ export default {
       url: "https://api.harmony.one",
       accounts: [],
     },
+    fantom: {
+      url: "https://rpcapi-tracing.fantom.network",
+      accounts: [],
+    },
+    polygon: {
+      url: "https://apis.ankr.com/6052791850e6426392593b0ddba45bf5/d37735e535d9d051230799cae45aeb6a/polygon/full/main",
+      accounts: [],
+    },
   },
   solidity: {
     compilers: [
