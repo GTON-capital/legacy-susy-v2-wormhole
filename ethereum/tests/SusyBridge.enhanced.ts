@@ -40,11 +40,11 @@ import { BridgeImplementation } from "../typechain/BridgeImplementation";
 import { TokenImplementation } from "../typechain/TokenImplementation";
 
 import { signAndEncodeVM } from "../shared/bridge";
-import { providers, Wallet } from "ethers";
+import { BigNumber, providers, Wallet } from "ethers";
 import { BridgeToken } from "./../typechain/BridgeToken.d";
 
 describe("Tests: SuSyBridge", () => {
-  let gton: TestERC20;
+  // let gton: TestERC20;
   // let usdc: TestERC20
   // let usdt: TestERC20
   // let weth: WrappedNative
@@ -138,16 +138,19 @@ describe("Tests: SuSyBridge", () => {
     emitterChainId: string;
   };
 
+  // foreign chain is chain id of wrapped asset
   const testForeignChainId = 33;
 
   const testProps: TestProps = {
     chainId: "0x1",
-    governanceChainId: "0x2",
+    governanceChainId: "0x1",
     governanceContract: "0x0000000000000000000000000000000000000000000000000000000000000004",
 
-    bridgeChainId: "0x01",
-    bridgeGovernanceChainId: "0x2",
+    bridgeChainId: "0x1",
+    bridgeGovernanceChainId: "0x1",
     bridgeGovernanceContract: "0x0000000000000000000000000000000000000000000000000000000000000004",
+
+    emitterChainId: "0000",
 
     initSigners: guardianSet.addressList,
 
@@ -160,13 +163,11 @@ describe("Tests: SuSyBridge", () => {
       chainId: testForeignChainId,
       nativeContract: "0x0",
     },
-
-    emitterChainId: "0000",
   };
 
   testProps.testToken!.nativeContract = testProps.governanceContract;
 
-  const deployedContracts: {
+  type DeployedContracts = {
     /** Migration N0 */
     WETH?: TestERC20;
 
@@ -183,22 +184,27 @@ describe("Tests: SuSyBridge", () => {
     susyBridge?: SuSyBridge;
 
     bridgeAsset?: TestERC20;
-  } = {};
+  };
+  const deployedContracts: DeployedContracts = {};
 
   function buildOfLen(_input: Buffer | string, n: number): Buffer {
     const input = typeof _input === "string" ? Buffer.from(web3.utils.hexToBytes(_input)) : _input;
     return Buffer.alloc(n).fill(input, n - input.length);
   }
 
-  // суета происходит перед каждым тестом
-  // this fn runs before each test (pure state persist)
-  beforeEach("deploy test contracts", async () => {
+  async function runInitialMigration(_deployedContracts: DeployedContracts, _props: Partial<TestProps> = {}) {
+    const props = {
+      ...testProps,
+      ..._props,
+    };
+
+    // console.log({ _props, testProps, props });
     /**
      * Migration N0
      */
 
     const erc20Factory = (await ethers.getContractFactory("TestERC20")) as TestERC20__factory;
-    deployedContracts.WETH = await erc20Factory.deploy(1_000_000);
+    _deployedContracts.WETH = await erc20Factory.deploy(1_000_000);
 
     const setupFactory = await ethers.getContractFactory("Setup");
     const implFactory = await ethers.getContractFactory("Implementation");
@@ -209,19 +215,19 @@ describe("Tests: SuSyBridge", () => {
     /**
      * Migration N1
      */
-    deployedContracts.setupContract = (await setupFactory.deploy()) as Setup;
-    deployedContracts.implementationContract = (await implFactory.deploy()) as Implementation;
+    _deployedContracts.setupContract = (await setupFactory.deploy()) as Setup;
+    _deployedContracts.implementationContract = (await implFactory.deploy()) as Implementation;
 
-    const setupTx = await deployedContracts.setupContract.setup(
-      deployedContracts.implementationContract.address,
+    const setupTx = await _deployedContracts.setupContract.setup(
+      _deployedContracts.implementationContract.address,
       guardianSet.addressList,
-      testProps.chainId, // testForeignChainId,
-      testProps.governanceChainId, // testGovernanceChainId,
-      testProps.governanceContract // testGovernanceContract
+      props.chainId, // testForeignChainId,
+      props.governanceChainId, // testGovernanceChainId,
+      props.governanceContract // testGovernanceContract
     );
 
-    deployedContracts.wormholeContract = (await wormholeFactory.deploy(
-      deployedContracts.setupContract.address,
+    _deployedContracts.wormholeContract = (await wormholeFactory.deploy(
+      _deployedContracts.setupContract.address,
       setupTx.data
     )) as Wormhole;
 
@@ -238,57 +244,63 @@ describe("Tests: SuSyBridge", () => {
     await token
       .connect(legitOwner)
       .initialize(
-        testProps.testToken!.name,
-        testProps.testToken!.symbol,
-        testProps.testToken!.decimals,
-        testProps.testToken!.sequence,
+        props.testToken!.name,
+        props.testToken!.symbol,
+        props.testToken!.decimals,
+        props.testToken!.sequence,
         legitOwner.address,
-        testProps.testToken!.chainId,
-        testProps.testToken!.nativeContract
+        props.testToken!.chainId,
+        props.testToken!.nativeContract
       );
 
-    deployedContracts.tokenImplementation = token;
+    _deployedContracts.tokenImplementation = token;
 
-    deployedContracts.bridgeSetup = (await bridgeSetupFactory.deploy()) as BridgeSetup;
-    deployedContracts.bridgeImplementation = (await bridgeImplFactory.deploy()) as BridgeImplementation;
+    _deployedContracts.bridgeSetup = (await bridgeSetupFactory.deploy()) as BridgeSetup;
+    _deployedContracts.bridgeImplementation = (await bridgeImplFactory.deploy()) as BridgeImplementation;
 
-    const bridgeSetupTx = await deployedContracts.bridgeSetup.setup(
-      deployedContracts.bridgeImplementation.address,
-      testProps.bridgeChainId,
-      deployedContracts.wormholeContract.address,
-      testProps.bridgeGovernanceChainId, // testGovernanceChainId,
-      testProps.bridgeGovernanceContract, // testGovernanceContract,
-      deployedContracts.tokenImplementation.address,
-      deployedContracts.WETH.address
+    const bridgeSetupTx = await _deployedContracts.bridgeSetup.setup(
+      _deployedContracts.bridgeImplementation.address,
+      props.bridgeChainId,
+      _deployedContracts.wormholeContract.address,
+      props.bridgeGovernanceChainId, // testGovernanceChainId,
+      props.bridgeGovernanceContract, // testGovernanceContract,
+      _deployedContracts.tokenImplementation.address,
+      _deployedContracts.WETH.address
     );
 
     const susyTokenBridgeFactory = (await ethers.getContractFactory("SuSyTokenBridge")) as SuSyTokenBridge__factory;
 
-    deployedContracts.susyTokenBridge = await susyTokenBridgeFactory.deploy(
-      deployedContracts.bridgeSetup.address,
+    _deployedContracts.susyTokenBridge = await susyTokenBridgeFactory.deploy(
+      _deployedContracts.bridgeSetup.address,
       bridgeSetupTx.data
     );
 
-    deployedContracts.bridgeImplementation = await bridgeImplFactory.attach(deployedContracts.susyTokenBridge.address);
+    _deployedContracts.bridgeImplementation = await bridgeImplFactory.attach(_deployedContracts.susyTokenBridge!.address);
 
-    expect(deployedContracts.wormholeContract.address).to.equal(await deployedContracts.bridgeImplementation.wormhole()); // Recommended
+    expect(_deployedContracts.wormholeContract.address).to.equal(await _deployedContracts.bridgeImplementation.wormhole()); // Recommended
+  }
+
+  // суета происходит перед каждым тестом
+  // this fn runs before each test (pure state persist)
+  beforeEach("deploy test contracts", async () => {
+    await runInitialMigration(deployedContracts);
   });
 
-  async function runRegisterChainTest(overrideProps: Partial<TestProps> = {}) {
-    const bridgeImplDeployed = deployedContracts.bridgeImplementation!;
+  async function runRegisterChainTest(_deployedContracts: DeployedContracts, overrideProps: Partial<TestProps> = {}) {
+    const bridgeImplDeployed = _deployedContracts.bridgeImplementation!;
 
-    const moduleName = "TokenBridge";
+    const moduleName = "SuSyBridge";
     const moduleNameHex = buildOfLen(Buffer.from(moduleName, "utf8"), 32).toString("hex");
 
     const props = {
       ...testProps,
       ...overrideProps,
-    }
+    };
 
-    console.log(
-      "000000000000000000000000000000000000000000546f6b656e427269646765",
-      web3.utils.hexToString("0x000000000000000000000000000000000000000000546f6b656e427269646765")
-    );
+    // console.log(
+    //   "000000000000000000000000000000000000000000546f6b656e427269646765",
+    //   web3.utils.hexToString("0x000000000000000000000000000000000000000000546f6b656e427269646765")
+    // );
 
     const dataRaw = [
       "0x",
@@ -298,6 +310,20 @@ describe("Tests: SuSyBridge", () => {
       web3.eth.abi.encodeParameter("uint16", props.bridgeChainId).substring(2 + (64 - 4)),
       web3.eth.abi.encodeParameter("bytes32", props.bridgeGovernanceContract).substring(2),
     ];
+
+    console.log("register chain", {
+      dataRaw,
+      dataDict: {
+        act: "0x" + moduleNameHex,
+        moduleNameHex,
+        chainAction: "01",
+        emitterChainId: props.emitterChainId,
+        bridgeChainId: web3.eth.abi.encodeParameter("uint16", props.bridgeChainId).substring(2 + (64 - 4)),
+        bridgeGovernanceContract: web3.eth.abi.encodeParameter("bytes32", props.bridgeGovernanceContract).substring(2),
+      },
+      overrideProps,
+      testProps,
+    });
 
     const data = dataRaw.join("");
 
@@ -327,66 +353,12 @@ describe("Tests: SuSyBridge", () => {
     expect(after).to.equal(props.bridgeGovernanceContract);
   }
 
-  it("should register a foreign bridge implementation correctly", async () => {
-    await runRegisterChainTest();
-  });
-
   const randomN = (n: number) => Math.ceil(Math.random() * n);
   const randomTwo = (n: number): [number, number] => {
     const a = randomN(n);
     const b = randomN(n);
     return a !== b ? [a, b] : randomTwo(n);
   };
-
-  it("bridged tokens should only be mint- and burn-able by owner", async function () {
-    const tokenFactory = (await ethers.getContractFactory("TokenImplementation")) as TokenImplementation__factory;
-
-    const [ownerIndex, nonOwnerIndex] = randomTwo(guardianSet.n - 1);
-    const legitOwner = guardianSet.guardians[ownerIndex];
-    const nonOwner = guardianSet.guardians[nonOwnerIndex];
-    // initialize our template token contract
-    // zero init supply
-
-    let token = await tokenFactory.connect(legitOwner).deploy();
-
-    await token
-      .connect(legitOwner)
-      .initialize(
-        testProps.testToken!.name,
-        testProps.testToken!.symbol,
-        testProps.testToken!.decimals,
-        testProps.testToken!.sequence,
-        legitOwner.address,
-        testProps.testToken!.chainId,
-        testProps.testToken!.nativeContract
-      );
-
-    await token.connect(legitOwner).mint(guardianSet.addressList[0], 10);
-    await token.connect(legitOwner).burn(guardianSet.addressList[0], 5);
-
-    let failed = false;
-    try {
-      await token.connect(nonOwner).mint(guardianSet.addressList[0], 10);
-    } catch (err) {
-      failed = true;
-    }
-    expect(failed).to.equal(true);
-
-    failed = false;
-    try {
-      await token.connect(nonOwner).burn(guardianSet.addressList[0], 10);
-    } catch (err) {
-      failed = true;
-    }
-    expect(failed).to.equal(true);
-  });
-
-  it("should attest a token correctly", async function name() {
-    const bridgeImpl = deployedContracts.bridgeImplementation!;
-    const tokenImpl = deployedContracts.tokenImplementation!;
-
-    await bridgeImpl.attestToken(tokenImpl.address, "234");
-  });
 
   type DeployedTokenResponse = {
     mockData: TestTokenProps;
@@ -410,7 +382,7 @@ describe("Tests: SuSyBridge", () => {
       nativeContract: testProps.bridgeGovernanceContract,
       ...overrideTokenProps,
     };
-
+    // console.log({ mockData });
     const nameWithPostfix = (name: string) => {
       const postfix = "(SuSy)";
       return name + " " + postfix;
@@ -431,10 +403,16 @@ describe("Tests: SuSyBridge", () => {
     return { mockData, wrappedAsset, nameWithPostfix, tokenOwner: legitOwner };
   }
 
-  async function runTokenAttestationTest(result: DeployedTokenResponse) {
+  async function runTokenAttestationTest(
+    _deployedContracts: DeployedContracts,
+    result: DeployedTokenResponse,
+    props: Partial<TestProps>
+  ) {
     const { mockData, wrappedAsset, nameWithPostfix } = result;
 
-    const bridgeImpl = deployedContracts.bridgeImplementation!;
+    // console.log({ result });
+
+    const bridgeImpl = _deployedContracts.bridgeImplementation!;
 
     const web3_wrappedAssetChainId = web3.eth.abi.encodeParameter("uint16", mockData.chainId).substring(2 + (64 - 4));
     const web3_wrappedAssetAddress = buildOfLen(wrappedAsset.address, 32).toString("hex");
@@ -455,14 +433,29 @@ describe("Tests: SuSyBridge", () => {
 
     // console.log("attest token", {
     //   dataRaw,
+    //   dataDict: {
+    //     act: "0x0" + BridgeStructs_PayloadEnum.AssetMeta,
+    //     // tokenAddress
+    //     tokenAddr: web3_wrappedAssetAddress,
+    //     // token chain
+    //     tokenChain: web3_wrappedAssetChainId,
+    //     // decimals
+    //     decimals: String(mockData.decimals),
+    //     // symbol
+    //     symbol: buildOfLen(Buffer.from(mockData.symbol, "utf8"), 32).toString("hex"),
+    //     // name
+    //     name: buildOfLen(Buffer.from(mockData.name, "utf8"), 32).toString("hex"),
+    //   },
+    //   web3_wrappedAssetChainId,
+    //   web3_wrappedAssetAddress,
     // });
     const data = dataRaw.join("");
 
     const vm = await signAndEncodeVM(
       0,
       0,
-      testProps.bridgeChainId,
-      testProps.bridgeGovernanceContract,
+      props.bridgeChainId!,
+      props.bridgeGovernanceContract!,
       0,
       data,
       guardianSet.privateKeysList,
@@ -470,16 +463,18 @@ describe("Tests: SuSyBridge", () => {
       0
     );
 
-    // console.log("attest", { web3_wrappedAssetChainId }, { web3_wrappedAssetAddress });
+    // const bridge = de
+
+    // console.log("attest", { result, web3_wrappedAssetChainId }, { web3_wrappedAssetAddress });
 
     const tx = await bridgeImpl.createWrapped("0x" + vm);
 
     const wrappedAssetRetrieved = await bridgeImpl.wrappedAsset("0x" + web3_wrappedAssetChainId, "0x" + web3_wrappedAssetAddress);
 
-    console.log("run attestation", {
-      wrappedAssetRetrieved,
-      args: ["0x" + web3_wrappedAssetChainId, "0x" + web3_wrappedAssetAddress],
-    });
+    // console.log("run attestation", {
+    //   wrappedAssetRetrieved,
+    //   args: ["0x" + web3_wrappedAssetChainId, "0x" + web3_wrappedAssetAddress],
+    // });
     // assert.isNotNull(wrappedAssetRetrieved, "wrapped asset is ok");
 
     // const bridgeTokenFactory = await ethers.getContractFactory("TokenImplementation");
@@ -499,117 +494,6 @@ describe("Tests: SuSyBridge", () => {
 
     assert.strictEqual(initializedWrappedAsset_nativeContract, mockData.nativeContract, "native contracts are ok");
   }
-
-  it("should correctly deploy a wrapped asset for a token attestation", async function name() {
-    await runRegisterChainTest();
-
-    const result = await deployWrappedToken();
-
-    await runTokenAttestationTest(result);
-  });
-
-  // it("should correctly update a wrapped asset for a token attestation", async () => {
-  //   await runRegisterChainTest();
-
-  //   const deployedTokenResponse = await deployWrappedToken();
-
-  //   await runTokenAttestationTest(deployedTokenResponse);
-
-  //   const { mockData, wrappedAsset, nameWithPostfix } = deployedTokenResponse;
-
-  //   const updateToPayload: Partial<TestTokenProps> = {
-  //     name: "Wrapped USDC",
-  //     symbol: "sUSDC",
-  //   };
-
-  //   const web3_wrappedAssetChainId = web3.eth.abi.encodeParameter("uint16", mockData.chainId).substring(2 + (64 - 4));
-  //   const web3_wrappedAssetAddress = buildOfLen(wrappedAsset.address, 32).toString("hex");
-
-  //   console.log({ web3_wrappedAssetChainId });
-  //   console.log({ web3_wrappedAssetAddress });
-
-  //   const dataRaw = [
-  //     "0x0" + BridgeStructs_PayloadEnum.AssetMeta,
-  //     // tokenAddress
-  //     web3_wrappedAssetAddress,
-  //     // token chain
-  //     web3_wrappedAssetChainId,
-  //     // decimals
-  //     String(mockData.decimals),
-  //     // symbol
-  //     buildOfLen(Buffer.from("aaaaaaaa", "utf8"), 32).toString("hex"),
-  //     // name
-  //     buildOfLen(Buffer.from("bbbbbbbb", "utf8"), 32).toString("hex"),
-  //   ];
-
-  //   console.log({ dataRaw });
-  //   const data = dataRaw.join("");
-
-  //   const sequence = 1;
-
-  //   const vm = await signAndEncodeVM(
-  //     0,
-  //     0,
-  //     testProps.bridgeChainId,
-  //     testProps.bridgeGovernanceContract,
-  //     sequence,
-  //     data,
-  //     guardianSet.privateKeysList,
-  //     0,
-  //     0
-  //   );
-
-  //   console.log("before", [
-  //     wrappedAsset.address,
-  //     await wrappedAsset.decimals(),
-  //     await wrappedAsset.name(),
-  //     await wrappedAsset.symbol(),
-  //   ]);
-
-  //   const bridgeImpl = deployedContracts.bridgeImplementation!;
-
-  //   await bridgeImpl.updateWrapped("0x" + vm);
-
-  //   console.log("after", [
-  //     wrappedAsset.address,
-  //     await wrappedAsset.decimals(),
-  //     await wrappedAsset.name(),
-  //     await wrappedAsset.symbol(),
-  //   ]);
-
-  //   const wrappedAssetRetrieved = await bridgeImpl.wrappedAsset("0x" + web3_wrappedAssetChainId, "0x" + web3_wrappedAssetAddress);
-
-  //   console.log("after run update", {
-  //     wrappedAssetRetrieved,
-  //     args: ["0x" + web3_wrappedAssetChainId, "0x" + web3_wrappedAssetAddress],
-  //   });
-
-  //   // assert.isTrue(await bridgeImpl.isWrappedAsset(wrappedAssetRetrieved), "wrapped asset is ok");
-
-  //   console.log({ wrappedAsset: wrappedAsset.address });
-
-  //   const bridgeTokenFactory = await ethers.getContractFactory("BeaconProxy");
-  //   const bridgedToken = (await bridgeTokenFactory.attach(wrappedAssetRetrieved)) as IBeacon;
-  //   console.log({ implAddr: await bridgedToken.implementation() });
-  //   const updatedWrappedAsset = await wrappedAsset.attach(await bridgedToken.implementation());
-
-  //   console.log([
-  //     wrappedAsset.address,
-  //     updatedWrappedAsset.address,
-  //     wrappedAssetRetrieved,
-  //     await updatedWrappedAsset.decimals(),
-  //     await updatedWrappedAsset.name(),
-  //     await updatedWrappedAsset.symbol(),
-  //   ]);
-
-  //   assert.strictEqual(await updatedWrappedAsset.symbol(), updateToPayload.symbol, "wrapped asset symbol is ok");
-
-  //   assert.strictEqual(await updatedWrappedAsset.name(), nameWithPostfix(updateToPayload.name!), "wrapped asset name is ok");
-
-  //   const initializedWrappedAsset_nativeContract = await updatedWrappedAsset.nativeContract();
-
-  //   assert.strictEqual(initializedWrappedAsset_nativeContract, mockData.nativeContract, "native contracts are ok");
-  // });
 
   async function runDepositFundsTest(result: DeployedTokenResponse) {
     let { wrappedAsset, tokenOwner } = result;
@@ -674,7 +558,7 @@ describe("Tests: SuSyBridge", () => {
       "234" // nonce
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
     const accountBalanceAfter = await wrappedAsset.balanceOf(tokenOwner.address);
 
@@ -684,7 +568,7 @@ describe("Tests: SuSyBridge", () => {
 
     assert.equal(bridgeBalanceAfter.toString(), props.amount.toString());
 
-    console.log({ lastLogMessageEvent });
+    // console.log({ lastLogMessageEvent });
     assert.equal(lastLogMessageEvent!.sender, tokenBridge.address);
 
     // payload len
@@ -727,12 +611,74 @@ describe("Tests: SuSyBridge", () => {
     );
   }
 
-  it("should deposit and log transfers correctly", async function () {
-    await runRegisterChainTest();
+  it("should register a foreign bridge implementation correctly", async () => {
+    await runRegisterChainTest(deployedContracts);
+  });
+
+  it("bridged tokens should only be mint- and burn-able by owner", async function () {
+    const tokenFactory = (await ethers.getContractFactory("TokenImplementation")) as TokenImplementation__factory;
+
+    const [ownerIndex, nonOwnerIndex] = randomTwo(guardianSet.n - 1);
+    const legitOwner = guardianSet.guardians[ownerIndex];
+    const nonOwner = guardianSet.guardians[nonOwnerIndex];
+    // initialize our template token contract
+    // zero init supply
+
+    let token = await tokenFactory.connect(legitOwner).deploy();
+
+    await token
+      .connect(legitOwner)
+      .initialize(
+        testProps.testToken!.name,
+        testProps.testToken!.symbol,
+        testProps.testToken!.decimals,
+        testProps.testToken!.sequence,
+        legitOwner.address,
+        testProps.testToken!.chainId,
+        testProps.testToken!.nativeContract
+      );
+
+    await token.connect(legitOwner).mint(guardianSet.addressList[0], 10);
+    await token.connect(legitOwner).burn(guardianSet.addressList[0], 5);
+
+    let failed = false;
+    try {
+      await token.connect(nonOwner).mint(guardianSet.addressList[0], 10);
+    } catch (err) {
+      failed = true;
+    }
+    expect(failed).to.equal(true);
+
+    failed = false;
+    try {
+      await token.connect(nonOwner).burn(guardianSet.addressList[0], 10);
+    } catch (err) {
+      failed = true;
+    }
+    expect(failed).to.equal(true);
+  });
+
+  it("should attest a token correctly", async function name() {
+    const bridgeImpl = deployedContracts.bridgeImplementation!;
+    const tokenImpl = deployedContracts.tokenImplementation!;
+
+    await bridgeImpl.attestToken(tokenImpl.address, "234");
+  });
+
+  it("should correctly deploy a wrapped asset for a token attestation", async function name() {
+    await runRegisterChainTest(deployedContracts);
 
     const result = await deployWrappedToken();
 
-    await runTokenAttestationTest(result);
+    await runTokenAttestationTest(deployedContracts, result, testProps);
+  });
+
+  it("should deposit and log transfers correctly", async function () {
+    await runRegisterChainTest(deployedContracts);
+
+    const result = await deployWrappedToken();
+
+    await runTokenAttestationTest(deployedContracts, result, testProps);
     await runDepositFundsTest(result);
   });
 
@@ -740,18 +686,18 @@ describe("Tests: SuSyBridge", () => {
   // like, some funds were locked on other chain
   // and this test validates correct behaviour on
   // destination chain -> mint operation
-  it("should transfer out locked assets for a valid transfer vm", async () => {
+  it("test behaviour as destination chain (mint): (should transfer out locked assets for a valid transfer vm)", async () => {
     const receiver = Wallet.createRandom();
 
-    await runRegisterChainTest();
+    await runRegisterChainTest(deployedContracts);
 
     const caseProps = { amount: new Big(10).mul(1e18), receiverChain: 137, receiverAddress: receiver.address };
 
     const result = await deployWrappedToken({ chainId: caseProps.receiverChain });
 
-    await runTokenAttestationTest(result);
+    await runTokenAttestationTest(deployedContracts, result, testProps);
 
-    let { wrappedAsset, tokenOwner, mockData } = result;
+    let { wrappedAsset, tokenOwner } = result;
 
     wrappedAsset = wrappedAsset.connect(tokenOwner);
 
@@ -781,7 +727,7 @@ describe("Tests: SuSyBridge", () => {
       "0000000000000000000000000000000000000000000000000000000000000000",
     ];
 
-    console.log({ dataRaw });
+    // console.log({ dataRaw });
     const data = dataRaw.join("");
 
     const vm = await signAndEncodeVM(
@@ -806,4 +752,222 @@ describe("Tests: SuSyBridge", () => {
 
     assert.equal(bridgeBalanceAfter.toString(), caseProps.amount.toString());
   });
+
+  it("should revert on transfer out of a total of > max(uint64) tokens", async () => {
+    await runRegisterChainTest(deployedContracts);
+
+    const plain = {
+      supply: "184467440737095516160000000000",
+      firstTransfer: "1000000000000",
+    };
+    const caseProps = {
+      supply: new Big(plain.supply),
+      firstTransfer: new Big(plain.firstTransfer),
+      receiverChain: 135,
+    };
+
+    const result = await deployWrappedToken({ chainId: caseProps.receiverChain });
+
+    await runTokenAttestationTest(deployedContracts, result, testProps);
+
+    let { wrappedAsset, tokenOwner } = result;
+
+    wrappedAsset = wrappedAsset.connect(tokenOwner);
+
+    const bridgeImpl = deployedContracts.bridgeImplementation!.connect(tokenOwner);
+
+    await wrappedAsset.mint(tokenOwner.address, caseProps.supply.toFixed());
+    await wrappedAsset.approve(bridgeImpl.address, caseProps.supply.toFixed());
+
+    await bridgeImpl.transferTokens(
+      wrappedAsset.address,
+      caseProps.firstTransfer.toFixed(),
+      "10",
+      await wrappedAsset.nativeContract(),
+      "0",
+      "0"
+    );
+
+    let failed = false;
+    try {
+      await bridgeImpl.transferTokens(
+        wrappedAsset.address,
+        caseProps.supply.sub(caseProps.firstTransfer).toFixed(),
+        "10",
+        await wrappedAsset.nativeContract(),
+        "0",
+        "0"
+      );
+    } catch (err) {
+      assert.equal(
+        // @ts-ignore
+        err.message,
+        "VM Exception while processing transaction: reverted with reason string 'transfer exceeds max outstanding bridged token amount'"
+      );
+      failed = true;
+    }
+
+    assert.isTrue(failed);
+  });
+
+  it("rotate validators: add new, drop existing", async () => {
+    const newGuardianSet = new GuardianSet(5);
+
+    await runRegisterChainTest(deployedContracts);
+
+    const result = await deployWrappedToken();
+
+    await runTokenAttestationTest(deployedContracts, result, testProps);
+  });
+
+  it("mesh network transfer test (imitate chains)", async () => {
+    type ChainCfg = {
+      name: string;
+      chainId: number;
+      implSlot: string;
+      deployment: DeployedContracts;
+      wrappedAsset?: DeployedTokenResponse;
+      wrapAssetFromChainIds: number[];
+    };
+
+    const tokenDeployFn = async (
+      cfg: ChainCfg,
+      overrideToken: Partial<TestTokenProps>,
+      props: Partial<TestProps>
+    ): Promise<DeployedTokenResponse> => {
+      const result = await deployWrappedToken({
+        ...overrideToken,
+        nativeContract: cfg.implSlot,
+      });
+
+      await runTokenAttestationTest(cfg.deployment, result, props);
+      return result;
+    };
+
+    const origin = 333;
+    const tokenConfig: Partial<TestTokenProps> = {
+      name: "Super-Summetry Token",
+      symbol: "SUSY",
+      decimals: 18,
+      sequence: 0,
+      chainId: 333,
+    };
+    const configs: {
+      [x: string]: ChainCfg;
+    } = {
+      Polygon: {
+        name: "polygon",
+        chainId: 2,
+        implSlot: "0x" + buildOfLen("0x2", 32).toString("hex"),
+        deployment: {},
+        wrapAssetFromChainIds: [3, 4],
+      },
+      Harmony: {
+        name: "harmony",
+        chainId: 3,
+        implSlot: "0x" + buildOfLen("0x3", 32).toString("hex"),
+        deployment: {},
+        wrapAssetFromChainIds: [3, 2],
+      },
+      Fantom: {
+        name: "fantom",
+        chainId: 4,
+        implSlot: "0x" + buildOfLen("0x4", 32).toString("hex"),
+        deployment: {},
+        wrapAssetFromChainIds: [2, 4],
+      },
+    };
+
+    /**
+     *
+     * SUSY token
+     *
+     *
+     * Token flow:
+     *                 – – – – – > (Polygon)
+     *              /               /   \
+     *            /               /      \
+     * (Solana) – – – – – –> (Harmony)    \
+     *           \               \       /
+     *            \               \    /
+     *              – – – – -> (Fantom)
+     *
+     *
+     *
+     */
+
+    const overrideProps = (cfg: ChainCfg): Partial<TestProps> => ({
+      chainId: web3.utils.numberToHex(cfg.chainId),
+      governanceChainId: web3.utils.numberToHex(cfg.chainId),
+      governanceContract: cfg.implSlot,
+      bridgeChainId: web3.utils.numberToHex(cfg.chainId),
+      bridgeGovernanceChainId: web3.utils.numberToHex(cfg.chainId),
+      bridgeGovernanceContract: cfg.implSlot,
+      emitterChainId: buildOfLen(web3.utils.numberToHex(cfg.chainId), 2).toString("hex"),
+    });
+
+    console.log("=======================================================================");
+
+    await runInitialMigration(configs.Polygon.deployment, overrideProps(configs.Polygon));
+    await runInitialMigration(configs.Harmony.deployment, overrideProps(configs.Harmony));
+    await runInitialMigration(configs.Fantom.deployment, overrideProps(configs.Fantom));
+
+    await runRegisterChainTest(configs.Polygon.deployment, overrideProps(configs.Polygon));
+    await runRegisterChainTest(configs.Harmony.deployment, overrideProps(configs.Harmony));
+    await runRegisterChainTest(configs.Fantom.deployment, overrideProps(configs.Fantom));
+
+    configs.Polygon.wrappedAsset = await tokenDeployFn(configs.Polygon, tokenConfig, overrideProps(configs.Polygon));
+    configs.Harmony.wrappedAsset = await tokenDeployFn(configs.Harmony, tokenConfig, overrideProps(configs.Harmony));
+    configs.Fantom.wrappedAsset = await tokenDeployFn(configs.Fantom, tokenConfig, overrideProps(configs.Fantom));
+
+    // imitate mint from Solana
+  });
+
+  // it("should mint bridged assets wrappers on transfer from another chain and handle fees correctly", async () => {
+  //   const receiver = Wallet.createRandom();
+
+  //   await runRegisterChainTest();
+
+  //   const caseProps = { amount: new Big(10).mul(1e18), receiverChain: 137, receiverAddress: receiver.address };
+
+  //   const result = await deployWrappedToken({ chainId: caseProps.receiverChain });
+  //   await runTokenAttestationTest(result);
+
+  //   let { wrappedAsset, tokenOwner } = result;
+
+  //   wrappedAsset = wrappedAsset.connect(tokenOwner);
+
+  //   await wrappedAsset.mint(tokenOwner.address, caseProps.amount.toString());
+
+  //   const bridgeImpl = deployedContracts.bridgeImplementation!;
+
+  //   const web3_wrappedAssetChainId = web3.eth.abi.encodeParameter("uint16", await wrappedAsset.chainId()).substring(2 + (64 - 4));
+  //   const web3_wrappedAssetAddress = buildOfLen(wrappedAsset.address, 32).toString("hex");
+
+  //   const wrappedAssetRetrieved = await bridgeImpl.wrappedAsset("0x" + web3_wrappedAssetChainId, "0x" + web3_wrappedAssetAddress);
+
+  //   await wrappedAsset.approve(bridgeImpl.address, caseProps.amount.toString());
+
+  //   const accountBalanceBefore = await wrappedAsset.balanceOf(tokenOwner.address);
+
+  //   assert.equal(accountBalanceBefore.toString(), caseProps.amount.toString());
+
+  //   await bridgeImpl.transferTokens(
+  //     wrappedAssetRetrieved,
+  //     caseProps.amount.toString(),
+  //     caseProps.receiverChain.toString(),
+  //     web3.eth.abi.encodeParameter("address", caseProps.receiverAddress),
+  //     "0",
+  //     "235"
+  //   );
+
+  //   const accountBalanceAfter = await wrappedAsset.balanceOf(tokenOwner.address);
+  //   assert.equal(accountBalanceAfter.toString(), "0");
+
+  //   const bridgeBalanceAfter = await wrappedAsset.balanceOf(bridgeImpl.address);
+  //   assert.equal(bridgeBalanceAfter.toString(), "0");
+
+  //   const totalSupplyAfter = await wrappedAsset.totalSupply();
+  //   assert.equal(totalSupplyAfter.toString(), "0");
+  // });
 });

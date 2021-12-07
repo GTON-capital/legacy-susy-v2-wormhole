@@ -15,6 +15,10 @@ export default {
       url: "https://api.avax.network/ext/bc/C/rpc",
       accounts: [],
     },
+    harmony: {
+      url: "https://api.harmony.one",
+      accounts: [],
+    },
   },
   solidity: {
     compilers: [

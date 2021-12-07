@@ -22,7 +22,9 @@ contract BridgeGovernance is BridgeGetters, BridgeSetters, ERC1967Upgrade {
   using BytesLib for bytes;
 
   // "TokenBridge" (left padded)
-  bytes32 constant module = 0x000000000000000000000000000000000000000000546f6b656e427269646765;
+  // bytes32 constant module = 0x000000000000000000000000000000000000000000546f6b656e427269646765;
+  // "SuSyBridge" (left padded)
+  bytes32 constant module = 0x0000000000000000000000000000000000000000000053755379427269646765;
 
   // Execute a RegisterChain governance message
   function registerChain(bytes memory encodedVM) public {
