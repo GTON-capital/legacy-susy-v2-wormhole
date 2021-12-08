@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package node.v1;
+
+option go_package = "github.com/SuSy-One/susy-v2/node/pkg/proto/node/v1;nodev1";
+
+message Dapp {
+
+  enum ID {
+    SUSY = 0;
+    OG = 1;
+    CANDY = 2;
+  }
+}

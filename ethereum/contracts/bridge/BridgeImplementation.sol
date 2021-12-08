@@ -6,10 +6,10 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 
-import "./Bridge.sol";
+import "./SuSyBridge.sol";
 
 
-contract BridgeImplementation is Bridge {
+contract BridgeImplementation is SuSyBridge {
     // Beacon getter for the token contracts
     function implementation() public view returns (address) {
         return tokenImplementation();

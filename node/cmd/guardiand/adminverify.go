@@ -1,15 +1,16 @@
 package guardiand
 
 import (
-	"github.com/certusone/wormhole/node/pkg/vaa"
 	"io/ioutil"
 	"log"
+
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/prototext"
 
-	nodev1 "github.com/certusone/wormhole/node/pkg/proto/node/v1"
+	nodev1 "github.com/SuSy-One/susy-v2/node/pkg/proto/node/v1"
 )
 
 var AdminClientGovernanceVAAVerifyCmd = &cobra.Command{

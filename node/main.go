@@ -1,6 +1,6 @@
 package main
 
-import "github.com/certusone/wormhole/node/cmd"
+import "github.com/SuSy-One/susy-v2/node/cmd"
 
 func main() {
 	cmd.Execute()

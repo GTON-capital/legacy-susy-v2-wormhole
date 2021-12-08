@@ -2,14 +2,15 @@ package guardiand
 
 import (
 	"fmt"
-	"github.com/certusone/wormhole/node/pkg/common"
-	"github.com/certusone/wormhole/node/pkg/db"
-	publicrpcv1 "github.com/certusone/wormhole/node/pkg/proto/publicrpc/v1"
-	"github.com/certusone/wormhole/node/pkg/publicrpc"
-	"github.com/certusone/wormhole/node/pkg/supervisor"
+	"net"
+
+	"github.com/SuSy-One/susy-v2/node/pkg/common"
+	"github.com/SuSy-One/susy-v2/node/pkg/db"
+	publicrpcv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/publicrpc/v1"
+	"github.com/SuSy-One/susy-v2/node/pkg/publicrpc"
+	"github.com/SuSy-One/susy-v2/node/pkg/supervisor"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"net"
 )
 
 func publicrpcServiceRunnable(logger *zap.Logger, listenAddr string, db *db.Database, gst *common.GuardianSetState) (supervisor.Runnable, *grpc.Server, error) {

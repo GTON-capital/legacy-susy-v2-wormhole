@@ -3,8 +3,8 @@
   "author": "https://certus.one",
   "description": "A visualizer for Wormhole Bridge info",
   "version": "1.0.0",
-  "homepage": "https://github.com/certusone/wormhole",
-  "bugs": "https://github.com/certusone/wormhole",
+  "homepage": "https://github.com/SuSy-One/susy-v2",
+  "bugs": "https://github.com/SuSy-One/susy-v2",
   "keywords": [
     "gatsby",
     "typescript",

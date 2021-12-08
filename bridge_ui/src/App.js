@@ -104,7 +104,7 @@ function App() {
               </Tooltip>
               <Tooltip title="View the source code">
                 <IconButton
-                  href="https://github.com/certusone/wormhole"
+                  href="https://github.com/SuSy-One/susy-v2"
                   target="_blank"
                   size="small"
                   className={classes.link}

@@ -31,7 +31,7 @@ given observation will always result in the same VAA body hash. All connected ch
 of whether a given VAA body - identified by its hash - has already been executed, therefore, VAAs can safely
 undergo multiple rounds of consensus until they are executed on all chains.
 
-The bridge does not yet implement chain replay (see https://github.com/certusone/wormhole/issues/123). Network outages
+The bridge does not yet implement chain replay (see https://github.com/SuSy-One/susy-v2/issues/123). Network outages
 can therefore result in missed observations from chains other than Solana in the case of a prolonged network outage. It
 will be possible to retroactively replay blocks after chain replay has been implemented to catch up on missed events.
 
@@ -59,7 +59,7 @@ Wormhole contracts charge in excess of the (very cheap) transaction fee, but a s
 still execute a sustained attack by simply paying said fee.
 
 A possible future improvement would be dynamic fees on the Solana side, but this is currently blocked by runtime
-limitations (see https://github.com/certusone/wormhole/issues/125). Even with dynamic fees, raising the fees beyond the
+limitations (see https://github.com/SuSy-One/susy-v2/issues/125). Even with dynamic fees, raising the fees beyond the
 amount that a reasonable user would pay may already constitute a successful attack against the protocol.
 
 DDoS attacks on decentralized protocols are a tricky thing in general, and mostly a matter of game theory/incentives.

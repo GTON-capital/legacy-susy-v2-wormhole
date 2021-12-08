@@ -1,4 +1,4 @@
-module github.com/certusone/wormhole/node/tools
+module github.com/SuSy-One/susy-v2/node/tools
 
 go 1.17
 

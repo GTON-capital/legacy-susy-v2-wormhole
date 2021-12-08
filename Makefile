@@ -32,6 +32,6 @@ node: $(BIN)/guardiand
 
 .PHONY: $(BIN)/guardiand
 $(BIN)/guardiand: dirs generate
-	cd node && go build -ldflags "-X github.com/certusone/wormhole/node/pkg/version.version=${VERSION}" \
+	cd node && go build -ldflags "-X github.com/SuSy-One/susy-v2/node/pkg/version.version=${VERSION}" \
 	  -mod=readonly -o ../$(BIN)/guardiand \
-	  github.com/certusone/wormhole/node
+	  github.com/SuSy-One/susy-v2/node

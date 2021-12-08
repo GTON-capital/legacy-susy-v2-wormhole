@@ -5,15 +5,16 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	node_common "github.com/certusone/wormhole/node/pkg/common"
-	"github.com/certusone/wormhole/node/pkg/vaa"
-	"github.com/certusone/wormhole/node/pkg/version"
+	"strings"
+	"time"
+
+	node_common "github.com/SuSy-One/susy-v2/node/pkg/common"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
+	"github.com/SuSy-One/susy-v2/node/pkg/version"
 	"github.com/ethereum/go-ethereum/common"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"strings"
-	"time"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
@@ -31,8 +32,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
-	"github.com/certusone/wormhole/node/pkg/supervisor"
+	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
+	"github.com/SuSy-One/susy-v2/node/pkg/supervisor"
 )
 
 var (

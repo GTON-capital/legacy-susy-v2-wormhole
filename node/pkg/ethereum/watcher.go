@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/certusone/wormhole/node/pkg/p2p"
-	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
+	"github.com/SuSy-One/susy-v2/node/pkg/p2p"
+	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -19,11 +19,11 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"go.uber.org/zap"
 
-	"github.com/certusone/wormhole/node/pkg/common"
-	"github.com/certusone/wormhole/node/pkg/ethereum/abi"
-	"github.com/certusone/wormhole/node/pkg/readiness"
-	"github.com/certusone/wormhole/node/pkg/supervisor"
-	"github.com/certusone/wormhole/node/pkg/vaa"
+	"github.com/SuSy-One/susy-v2/node/pkg/common"
+	"github.com/SuSy-One/susy-v2/node/pkg/ethereum/abi"
+	"github.com/SuSy-One/susy-v2/node/pkg/readiness"
+	"github.com/SuSy-One/susy-v2/node/pkg/supervisor"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 )
 
 var (

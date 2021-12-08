@@ -1,0 +1,13 @@
+evm_watchers:
+  - name: ethWatcher
+    url: wss://ropsten.infura.io/ws/v3/287b06b76784416b9f230b04235de663
+    contract: "0x6a475018119169DcBaC9D0efF9369318A05EC8f2"
+    network_name: eth
+    readiness: ethSyncing
+    chain_id: 2
+  - name: bscWatcher
+    url: wss://arb:arb@apis.ankr.com/wss/6017ce5a3b86463c8b15279cc25d74b3/d37735e535d9d051230799cae45aeb6a/binance/full/main
+    contract: "0xFC8D8166e5143559A6042BaA23174103463d5AD4"
+    network_name: bsc
+    readiness: bscSyncing
+    chain_id: 3

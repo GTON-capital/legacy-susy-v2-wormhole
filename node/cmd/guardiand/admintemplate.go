@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/prototext"
 
-	"github.com/certusone/wormhole/node/pkg/devnet"
-	nodev1 "github.com/certusone/wormhole/node/pkg/proto/node/v1"
+	"github.com/SuSy-One/susy-v2/node/pkg/devnet"
+	nodev1 "github.com/SuSy-One/susy-v2/node/pkg/proto/node/v1"
 )
 
 var setUpdateNumGuardians *int

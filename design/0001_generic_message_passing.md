@@ -12,7 +12,7 @@ functionality from the core protocol.
 Wormhole was originally designed to support a very specific kind of cross-chain message passing - token wrapping/swaps
 between Solana and Ethereum. Read more about the original design and its goals in
 the [announcement blog post](https://medium.com/certus-one/introducing-the-wormhole-bridge-24911b7335f7) and
-the [protocol documentation](https://github.com/certusone/wormhole/blob/48b3c0a3f8b35818952f61c38d89850eb8924b55/docs/protocol.md)
+the [protocol documentation](https://github.com/SuSy-One/susy-v2/blob/48b3c0a3f8b35818952f61c38d89850eb8924b55/docs/protocol.md)
 
 Since then, it has become clear that there is strong demand for using Wormhole's simple cross-chain state attestation
 model for applications beyond its original design. This includes third-party projects wanting to transfer tokens other
@@ -32,9 +32,9 @@ remote chain.
 We previously designed a similar protocol extension for the current Wormhole design, called EE-VAAs, which is the
 precursor to this fully generic design:
 
-- [External Entity VAAs](https://github.com/certusone/wormhole/issues/147)
-- [External Entity: Account State Attestation](https://github.com/certusone/wormhole/issues/149)
-- [External Entity: Relayer mode](https://github.com/certusone/wormhole/issues/150)
+- [External Entity VAAs](https://github.com/SuSy-One/susy-v2/issues/147)
+- [External Entity: Account State Attestation](https://github.com/SuSy-One/susy-v2/issues/149)
+- [External Entity: Relayer mode](https://github.com/SuSy-One/susy-v2/issues/150)
 
 This design doc assumes basic familiarity with the current design of Wormhole.
 

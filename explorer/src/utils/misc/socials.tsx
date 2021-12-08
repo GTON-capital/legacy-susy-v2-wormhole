@@ -12,7 +12,7 @@ interface KeyToElement { [service: string]: React.SFC<React.SVGProps<SVGSVGEleme
 
 const socialLinks: { [service: string]: string } = {
     'discord': "https://discord.gg/xsT8qrHAvV",
-    'github': "https://github.com/certusone/wormhole",
+    'github': "https://github.com/SuSy-One/susy-v2",
     'medium': "http://wormholecrypto.medium.com",
     'telegram': "https://t.me/wormholecrypto",
     'twitter': "https://twitter.com/wormholecrypto",

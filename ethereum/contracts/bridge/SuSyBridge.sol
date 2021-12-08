@@ -16,7 +16,7 @@ import "./BridgeGovernance.sol";
 import "./token/Token.sol";
 import "./token/TokenImplementation.sol";
 
-contract Bridge is BridgeGovernance {
+contract SuSyBridge is BridgeGovernance {
     using BytesLib for bytes;
 
     // Produce a AssetMeta message for a given token
@@ -89,6 +89,16 @@ contract Bridge is BridgeGovernance {
         sequence = logTransfer(chainId(), bytes32(uint256(uint160(address(WETH())))), normalizedAmount, recipientChain, recipient, normalizedArbiterFee, wormholeFee, nonce);
     }
 
+    function lock(
+        uint8 dstChainType,
+        uint8 dstChainId,
+        uint32 nonce,
+        bytes calldata payload
+    ) public payable returns (uint64 sequence) {
+        uint16 currentChain = chainId();
+        sequence = logGenericAction(uint8(currentChain), dstChainType, dstChainId, payload, msg.value, nonce);
+    }
+
     // Initiate a Transfer
     function transferTokens(address token, uint256 amount, uint16 recipientChain, bytes32 recipient, uint256 arbiterFee, uint32 nonce) public payable returns (uint64 sequence) {
         // determine token parameters
@@ -131,6 +141,28 @@ contract Bridge is BridgeGovernance {
         }
 
         sequence = logTransfer(tokenChain, tokenAddress, normalizedAmount, recipientChain, recipient, normalizedArbiterFee, msg.value, nonce);
+    }
+
+    function logGenericAction(
+        uint8 originChainId,
+        uint8 chainType,
+        uint8 chainId,
+        bytes calldata payload,
+        uint256 callValue,
+        uint32 nonce
+    ) internal returns (uint64 sequence) {
+      BridgeStructs.GenericAction memory action = BridgeStructs.GenericAction({
+          originChainId: originChainId,
+          dstChainType: chainType,
+          dstChainId: chainId,
+          payload: payload
+      });
+
+      bytes memory encoded = encodeGenericAction(action);
+
+      sequence = wormhole().publishMessage{
+        value : callValue
+      }(nonce, encoded, 15);
     }
 
     function logTransfer(uint16 tokenChain, bytes32 tokenAddress, uint256 amount, uint16 recipientChain, bytes32 recipient, uint256 fee, uint256 callValue, uint32 nonce) internal returns (uint64 sequence) {
@@ -245,11 +277,16 @@ contract Bridge is BridgeGovernance {
 
         IERC20 transferToken;
         if (transfer.tokenChain == chainId()) {
+            // basically means: unlock operation
+            // completion of transfer of the existing token (chain id eq)
             transferToken = IERC20(address(uint160(uint256(transfer.tokenAddress))));
 
             // track outstanding token amounts
             bridgedIn(address(transferToken), transfer.amount);
         } else {
+            // basically means: mint operation
+            // completion of transfer of the wrapped token (chain ids are different)
+            // error is thrown if wrapped version does not exist
             address wrapped = wrappedAsset(transfer.tokenChain, transfer.tokenAddress);
             require(wrapped != address(0), "no wrapper for this token created yet");
 
@@ -317,7 +354,7 @@ contract Bridge is BridgeGovernance {
         setOutstandingBridged(token, outstandingBridged(token) - normalizedAmount);
     }
 
-    function verifyBridgeVM(IWormhole.VM memory vm) internal view returns (bool){
+    function verifyBridgeVM(IWormhole.VM memory vm) internal view returns (bool) {
         if (bridgeContracts(vm.emitterChainId) == vm.emitterAddress) {
             return true;
         }
@@ -336,6 +373,15 @@ contract Bridge is BridgeGovernance {
         );
     }
 
+    function encodeGenericAction(BridgeStructs.GenericAction memory action) public pure returns (bytes memory encoded) {
+        encoded = abi.encodePacked(
+            action.originChainId,
+            action.dstChainType,
+            action.dstChainId,
+            action.payload
+        );
+    }
+
     function encodeTransfer(BridgeStructs.Transfer memory transfer) public pure returns (bytes memory encoded) {
         encoded = abi.encodePacked(
             transfer.payloadID,
@@ -346,6 +392,32 @@ contract Bridge is BridgeGovernance {
             transfer.toChain,
             transfer.fee
         );
+    }
+
+    function parseOGSwapDApp(bytes memory encoded) public pure returns (BridgeStructs.AssetMeta memory meta) {
+        uint index = 0;
+
+        meta.payloadID = encoded.toUint8(index);
+        index += 1;
+
+        require(meta.payloadID == 2, "invalid AssetMeta");
+
+        meta.tokenAddress = encoded.toBytes32(index);
+        index += 32;
+
+        meta.tokenChain = encoded.toUint16(index);
+        index += 2;
+
+        meta.decimals = encoded.toUint8(index);
+        index += 1;
+
+        meta.symbol = encoded.toBytes32(index);
+        index += 32;
+
+        meta.name = encoded.toBytes32(index);
+        index += 32;
+
+        require(encoded.length == index, "invalid AssetMeta");
     }
 
     function parseAssetMeta(bytes memory encoded) public pure returns (BridgeStructs.AssetMeta memory meta) {

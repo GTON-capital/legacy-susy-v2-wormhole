@@ -2,10 +2,11 @@ package common
 
 import (
 	"fmt"
-	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
+	"sync"
+
+	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"sync"
 )
 
 // MaxGuardianCount specifies the maximum number of guardians supported by on-chain contracts.

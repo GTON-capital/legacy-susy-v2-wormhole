@@ -68,7 +68,7 @@ const SEO: React.FC<Props> = ({ children, description = '', title }) => {
                 "url": "https://wormholenetwork.com",
                 "name": "Wormhole Network",
                 "sameAs": [
-                    "https://github.com/certusone/wormhole",
+                    "https://github.com/SuSy-One/susy-v2",
                     "https://t.me/wormholecrypto",
                     "https://twitter.com/wormholecrypto",
                     "https://www.wormholebridge.com"

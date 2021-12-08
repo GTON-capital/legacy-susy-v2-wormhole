@@ -6,7 +6,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/certusone/wormhole/node/pkg/vaa"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 
 	"github.com/ethereum/go-ethereum/common"
 )

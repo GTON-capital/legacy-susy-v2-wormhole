@@ -3,12 +3,14 @@ package solana
 import (
 	"context"
 	"fmt"
-	"github.com/certusone/wormhole/node/pkg/common"
-	"github.com/certusone/wormhole/node/pkg/p2p"
-	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
-	"github.com/certusone/wormhole/node/pkg/readiness"
-	"github.com/certusone/wormhole/node/pkg/supervisor"
-	"github.com/certusone/wormhole/node/pkg/vaa"
+	"time"
+
+	"github.com/SuSy-One/susy-v2/node/pkg/common"
+	"github.com/SuSy-One/susy-v2/node/pkg/p2p"
+	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
+	"github.com/SuSy-One/susy-v2/node/pkg/readiness"
+	"github.com/SuSy-One/susy-v2/node/pkg/supervisor"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 	eth_common "github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -17,7 +19,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
-	"time"
 )
 
 type SolanaWatcher struct {
@@ -221,7 +222,7 @@ func (s *SolanaWatcher) retryFetchBlock(ctx context.Context, slot uint64, retry 
 			zap.String("commitment", string(s.commitment)),
 			zap.Uint("retry", retry))
 
-		go s.retryFetchBlock(ctx, slot, retry + 1)
+		go s.retryFetchBlock(ctx, slot, retry+1)
 	}
 }
 

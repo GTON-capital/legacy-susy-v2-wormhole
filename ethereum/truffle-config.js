@@ -21,16 +21,16 @@ module.exports = {
             provider: () => new HDWalletProvider(process.env.MNEMONIC, `https://rinkeby.infura.io/v3/`+process.env.INFURA_KEY),
             network_id: 4,
             gas: 5500000,
-            confirmations: 2,
-            timeoutBlocks: 200,
+            confirmations: 0,
+            timeoutBlocks: 300,
             skipDryRun: true
         },
         ropsten: {
             provider: () => new HDWalletProvider(process.env.MNEMONIC, `https://ropsten.infura.io/v3/`+process.env.INFURA_KEY),
             network_id: 3,
             gas: 5500000,
-            confirmations: 1,
-            timeoutBlocks: 100,
+            confirmations: 0,
+            timeoutBlocks: 300,
             skipDryRun: true
         },
         goerli: {
@@ -41,23 +41,55 @@ module.exports = {
             gas: 4465030,
             gasPrice: 10000000000,
         },
+        fantom: {
+            provider: () => {
+                // return new HDWalletProvider(process.env.MNEMONIC, 'https://apis.ankr.com/6052791850e6426392593b0ddba45bf5/d37735e535d9d051230799cae45aeb6a/polygon/full/main')
+                // return new HDWalletProvider(process.env.MNEMONIC, 'https://polygon-rpc.com')
+                return new HDWalletProvider(process.env.MNEMONIC, 'https://apis.ankr.com/c3f382db4c55497b81bf3feb1e9a8499/d37735e535d9d051230799cae45aeb6a/fantom/full/main')
+            },
+            // network_id: 137,
+            // gasPrice: 70 * 1e9,
+            // confirmations: 1,
+            // skipDryRun: false,
+            // timeoutBlocks: 200,
+            network_id: 250,
+            // gas: 70000000,
+            // gasPrice: 8000000000,
+            gasPrice: 100 * 1e9,
+            confirmations: 1,
+            skipDryRun: false,
+            timeoutBlocks: 200,
+        },
         polygon: {
             provider: () => {
+                // return new HDWalletProvider(process.env.MNEMONIC, 'https://apis.ankr.com/6052791850e6426392593b0ddba45bf5/d37735e535d9d051230799cae45aeb6a/polygon/full/main')
+                // return new HDWalletProvider(process.env.MNEMONIC, 'https://polygon-rpc.com')
                 return new HDWalletProvider(process.env.MNEMONIC, 'https://apis.ankr.com/6052791850e6426392593b0ddba45bf5/d37735e535d9d051230799cae45aeb6a/polygon/full/main')
             },
+            // network_id: 137,
+            // gasPrice: 70 * 1e9,
+            // confirmations: 1,
+            // skipDryRun: false,
+            // timeoutBlocks: 200,
             network_id: 137,
-            gasPrice: 115,
-            confirmations: 1,
+            // gas: 70000000,
+            // gasPrice: 8000000000,
+            // gasPrice: 25 * 1e9,
+            confirmations: 4,
+            skipDryRun: false,
             timeoutBlocks: 200,
-            skipDryRun: false
         },
         binance: {
             provider: () => {
-                return new HDWalletProvider(process.env.MNEMONIC, 'https://apis.ankr.com/6017ce5a3b86463c8b15279cc25d74b3/d37735e535d9d051230799cae45aeb6a/binance/full/main')
+                return new HDWalletProvider(process.env.MNEMONIC, 'https://arb:arb@apis.ankr.com/6017ce5a3b86463c8b15279cc25d74b3/d37735e535d9d051230799cae45aeb6a/binance/full/main')
             },
-            network_id: '56',
-            gas: 70000000,
-            gasPrice: 8000000000,
+            network_id: 56,
+            // gas: 70000000,
+            // gasPrice: 8000000000,
+            gasPrice: 5 * 1e9,
+            confirmations: 1,
+            skipDryRun: false,
+            timeoutBlocks: 200,
         },
     },
 

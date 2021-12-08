@@ -1,9 +1,9 @@
-module github.com/certusone/wormhole/clients/eth
+module github.com/SuSy-One/susy-v2/clients/eth
 
 go 1.17
 
 require (
-	github.com/certusone/wormhole/node v0.0.0-20210722131135-a191017d22d0
+	github.com/SuSy-One/susy-v2/node v0.0.0-20210722131135-a191017d22d0
 	github.com/ethereum/go-ethereum v1.10.6
 	github.com/spf13/cobra v1.1.1
 )
@@ -51,4 +51,4 @@ require (
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 )
 
-replace github.com/certusone/wormhole/node => ../../node
+replace github.com/SuSy-One/susy-v2/node => ../../node
