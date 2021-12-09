@@ -18,7 +18,7 @@ var NodeKeygenCmd = &cobra.Command{
 }
 
 func runNodeKeygen(cmd *cobra.Command, args []string) {
-	key, err := getOrCreateNodeKey(zap.L(), args[0])
+	key, err := GetOrCreateNodeKey(zap.L(), args[0])
 	if err != nil {
 		panic(err)
 	}
@@ -29,7 +29,7 @@ func runNodeKeygen(cmd *cobra.Command, args []string) {
 	fmt.Printf("PeerID: %s\n", peerID.String())
 
 }
-func getOrCreateNodeKey(logger *zap.Logger, path string) (p2pcrypto.PrivKey, error) {
+func GetOrCreateNodeKey(logger *zap.Logger, path string) (crypto.PrivKey, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -72,3 +72,4 @@ func getOrCreateNodeKey(logger *zap.Logger, path string) (p2pcrypto.PrivKey, err
 
 	return priv, nil
 }
+

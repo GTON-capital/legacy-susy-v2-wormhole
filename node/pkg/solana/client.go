@@ -230,7 +230,7 @@ func (s *SolanaWatcher) retryFetchBlock(ctx context.Context, logger *zap.Logger,
 			zap.String("commitment", string(s.commitment)),
 			zap.Uint("retry", retry))
 
-		go s.retryFetchBlock(ctx, slot, retry+1)
+		go s.retryFetchBlock(ctx, logger, slot, retry+1)
 	}
 }
 

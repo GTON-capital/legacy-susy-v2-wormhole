@@ -3,29 +3,23 @@ package guardiand
 import (
 	"context"
 	"fmt"
-	"github.com/SuSy-One/susy-v2/node/pkg/db"
 	"github.com/SuSy-One/susy-v2/node/pkg/notify/discord"
 	"github.com/gagliardetto/solana-go/rpc"
+
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"path"
-	"syscall"
-
-	"github.com/SuSy-One/susy-v2/node/pkg/db"
-	"github.com/gagliardetto/solana-go/rpc"
 
 	solana_types "github.com/gagliardetto/solana-go"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/SuSy-One/susy-v2/node/pkg/common"
-	"github.com/SuSy-One/susy-v2/node/pkg/devnet"
-	"github.com/SuSy-One/susy-v2/node/pkg/ethereum"
 	"github.com/SuSy-One/susy-v2/node/pkg/p2p"
 	"github.com/SuSy-One/susy-v2/node/pkg/processor"
 	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
+	"github.com/SuSy-One/susy-v2/node/pkg/db"
 	"github.com/SuSy-One/susy-v2/node/pkg/readiness"
 	"github.com/SuSy-One/susy-v2/node/pkg/reporter"
 	solana "github.com/SuSy-One/susy-v2/node/pkg/solana"
@@ -38,19 +32,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"golang.org/x/sys/unix"
 
 	"github.com/SuSy-One/susy-v2/node/pkg/common"
 	"github.com/SuSy-One/susy-v2/node/pkg/devnet"
 	"github.com/SuSy-One/susy-v2/node/pkg/ethereum"
-	"github.com/SuSy-One/susy-v2/node/pkg/p2p"
-	"github.com/SuSy-One/susy-v2/node/pkg/processor"
-	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
-	"github.com/SuSy-One/susy-v2/node/pkg/readiness"
-	"github.com/SuSy-One/susy-v2/node/pkg/reporter"
-	solana "github.com/SuSy-One/susy-v2/node/pkg/solana"
-	"github.com/SuSy-One/susy-v2/node/pkg/supervisor"
-	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 
 	ipfslog "github.com/ipfs/go-log/v2"
 )

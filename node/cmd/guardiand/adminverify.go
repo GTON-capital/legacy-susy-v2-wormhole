@@ -1,6 +1,7 @@
 package guardiand
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 
