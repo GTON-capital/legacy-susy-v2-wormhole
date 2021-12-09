@@ -51,7 +51,7 @@ export default function Footer() {
           <img src={Discord} alt="Discord" />
         </IconButton>
         <IconButton
-          href="https://github.com/certusone/wormhole"
+          href="https://github.com/SuSy-One/susy-v2"
           target="_blank"
           rel="noopener noreferrer"
           className={classes.socialIcon}
