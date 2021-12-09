@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"cloud.google.com/go/bigtable"
-	"github.com/certusone/wormhole/node/pkg/vaa"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 )
 
 // shared code for the various functions, primarily response formatting.

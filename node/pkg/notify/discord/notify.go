@@ -3,7 +3,7 @@ package discord
 import (
 	"bytes"
 	"fmt"
-	"github.com/certusone/wormhole/node/pkg/vaa"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"go.uber.org/zap"

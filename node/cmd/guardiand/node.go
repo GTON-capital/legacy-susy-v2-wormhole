@@ -3,7 +3,7 @@ package guardiand
 import (
 	"context"
 	"fmt"
-	"github.com/certusone/wormhole/node/pkg/notify/discord"
+	"github.com/SuSy-One/susy-v2/node/pkg/notify/discord"
 	"log"
 	"net/http"
 	_ "net/http/pprof"

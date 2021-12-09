@@ -3,7 +3,7 @@ package processor
 import (
 	"context"
 	"crypto/ecdsa"
-	"github.com/certusone/wormhole/node/pkg/notify/discord"
+	"github.com/SuSy-One/susy-v2/node/pkg/notify/discord"
 	"time"
 
 	"github.com/SuSy-One/susy-v2/node/pkg/db"

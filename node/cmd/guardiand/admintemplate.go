@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/btcsuite/btcutil/bech32"
-	"github.com/certusone/wormhole/node/pkg/vaa"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mr-tron/base58"
 	"github.com/spf13/pflag"

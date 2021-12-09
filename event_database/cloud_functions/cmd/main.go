@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/GoogleCloudPlatform/functions-framework-go/funcframework"
-	p "github.com/certusone/wormhole/event_database/cloud_functions"
+	p "github.com/SuSy-One/susy-v2/event_database/cloud_functions"
 )
 
 func main() {
