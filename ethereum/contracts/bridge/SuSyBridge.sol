@@ -89,16 +89,6 @@ contract SuSyBridge is BridgeGovernance {
         sequence = logTransfer(chainId(), bytes32(uint256(uint160(address(WETH())))), normalizedAmount, recipientChain, recipient, normalizedArbiterFee, wormholeFee, nonce);
     }
 
-    function lock(
-        uint8 dstChainType,
-        uint8 dstChainId,
-        uint32 nonce,
-        bytes calldata payload
-    ) public payable returns (uint64 sequence) {
-        uint16 currentChain = chainId();
-        sequence = logGenericAction(uint8(currentChain), dstChainType, dstChainId, payload, msg.value, nonce);
-    }
-
     // Initiate a Transfer
     function transferTokens(address token, uint256 amount, uint16 recipientChain, bytes32 recipient, uint256 arbiterFee, uint32 nonce) public payable returns (uint64 sequence) {
         // determine token parameters
