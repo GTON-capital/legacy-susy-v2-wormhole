@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
-
 	"github.com/SuSy-One/susy-v2/node/pkg/common"
 	"github.com/SuSy-One/susy-v2/node/pkg/p2p"
 	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
@@ -21,6 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
+	"time"
 )
 
 type SolanaWatcher struct {
@@ -230,7 +229,7 @@ func (s *SolanaWatcher) retryFetchBlock(ctx context.Context, logger *zap.Logger,
 			zap.String("commitment", string(s.commitment)),
 			zap.Uint("retry", retry))
 
-		go s.retryFetchBlock(ctx, slot, retry+1)
+		go s.retryFetchBlock(ctx, logger, slot, retry+1)
 	}
 }
 

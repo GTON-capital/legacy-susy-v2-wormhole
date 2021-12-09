@@ -3,42 +3,39 @@ package guardiand
 import (
 	"context"
 	"fmt"
+	"github.com/SuSy-One/susy-v2/node/pkg/db"
 	"github.com/SuSy-One/susy-v2/node/pkg/notify/discord"
+	"github.com/gagliardetto/solana-go/rpc"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"path"
 	"strings"
-	"syscall"
-
-	"github.com/SuSy-One/susy-v2/node/pkg/db"
-	"github.com/gagliardetto/solana-go/rpc"
 
 	solana_types "github.com/gagliardetto/solana-go"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/SuSy-One/susy-v2/node/pkg/common"
+	"github.com/SuSy-One/susy-v2/node/pkg/devnet"
+	"github.com/SuSy-One/susy-v2/node/pkg/ethereum"
+	"github.com/SuSy-One/susy-v2/node/pkg/p2p"
+	"github.com/SuSy-One/susy-v2/node/pkg/processor"
+	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
+	"github.com/SuSy-One/susy-v2/node/pkg/readiness"
+	"github.com/SuSy-One/susy-v2/node/pkg/reporter"
+	solana "github.com/SuSy-One/susy-v2/node/pkg/solana"
+	"github.com/SuSy-One/susy-v2/node/pkg/supervisor"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 	eth_common "github.com/ethereum/go-ethereum/common"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"golang.org/x/sys/unix"
 
-	"github.com/certusone/wormhole/node/pkg/common"
-	"github.com/certusone/wormhole/node/pkg/devnet"
-	"github.com/certusone/wormhole/node/pkg/ethereum"
-	"github.com/certusone/wormhole/node/pkg/p2p"
-	"github.com/certusone/wormhole/node/pkg/processor"
-	gossipv1 "github.com/certusone/wormhole/node/pkg/proto/gossip/v1"
-	"github.com/certusone/wormhole/node/pkg/readiness"
-	"github.com/certusone/wormhole/node/pkg/reporter"
-	solana "github.com/certusone/wormhole/node/pkg/solana"
-	"github.com/certusone/wormhole/node/pkg/supervisor"
-	"github.com/certusone/wormhole/node/pkg/vaa"
+	"github.com/SuSy-One/susy-v2/node/pkg/terra"
 
 	ipfslog "github.com/ipfs/go-log/v2"
 )
@@ -198,23 +195,6 @@ func rootLoggerName() string {
 	}
 }
 
-// lockMemory locks current and future pages in memory to protect secret keys from being swapped out to disk.
-// It's possible (and strongly recommended) to deploy Wormhole such that keys are only ever
-// stored in memory and never touch the disk. This is a privileged operation and requires CAP_IPC_LOCK.
-func lockMemory() {
-	err := unix.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE)
-	if err != nil {
-		fmt.Printf("Failed to lock memory: %v (CAP_IPC_LOCK missing?)\n", err)
-		os.Exit(1)
-	}
-}
-
-// setRestrictiveUmask masks the group and world bits. This ensures that key material
-// and sockets we create aren't accidentally group- or world-readable.
-func setRestrictiveUmask() {
-	syscall.Umask(0077) // cannot fail
-}
-
 // NodeCmd represents the node command
 var NodeCmd = &cobra.Command{
 	Use:   "node",
@@ -227,8 +207,8 @@ func runNode(cmd *cobra.Command, args []string) {
 		fmt.Print(devwarning)
 	}
 
-	//lockMemory()
-	//setRestrictiveUmask()
+	common.LockMemory()
+	common.SetRestrictiveUmask()
 
 	// Refuse to run as root in production mode.
 	if !*unsafeDevMode && os.Geteuid() == 0 {
@@ -253,7 +233,12 @@ func runNode(cmd *cobra.Command, args []string) {
 	// Register components for readiness checks.
 	readiness.RegisterComponent(common.ReadinessEthSyncing)
 	readiness.RegisterComponent(common.ReadinessSolanaSyncing)
-	//readiness.RegisterComponent(common.ReadinessTerraSyncing)
+	readiness.RegisterComponent(common.ReadinessTerraSyncing)
+	readiness.RegisterComponent(common.ReadinessBSCSyncing)
+	readiness.RegisterComponent(common.ReadinessPolygonSyncing)
+	if *testnetMode {
+		readiness.RegisterComponent(common.ReadinessEthRopstenSyncing)
+	}
 
 	if *statusAddr != "" {
 		// Use a custom routing instead of using http.DefaultServeMux directly to avoid accidentally exposing packages
@@ -324,12 +309,33 @@ func runNode(cmd *cobra.Command, args []string) {
 	if *ethContract == "" {
 		logger.Fatal("Please specify --ethContract")
 	}
-	// if *bscRPC == "" {
-	// 	logger.Fatal("Please specify --bscRPC")
-	// }
-	// if *bscContract == "" {
-	// 	logger.Fatal("Please specify --bscContract")
-	// }
+	if *bscRPC == "" {
+		logger.Fatal("Please specify --bscRPC")
+	}
+	if *bscContract == "" {
+		logger.Fatal("Please specify --bscContract")
+	}
+	if *polygonRPC == "" {
+		logger.Fatal("Please specify --polygonRPC")
+	}
+	if *polygonContract == "" {
+		logger.Fatal("Please specify --polygonContract")
+	}
+	if *testnetMode {
+		if *ethRopstenRPC == "" {
+			logger.Fatal("Please specify --ethRopstenRPC")
+		}
+		if *ethRopstenContract == "" {
+			logger.Fatal("Please specify --ethRopstenContract")
+		}
+	} else {
+		if *ethRopstenRPC != "" {
+			logger.Fatal("Please do not specify --ethRopstenRPC in non-testnet mode")
+		}
+		if *ethRopstenContract != "" {
+			logger.Fatal("Please do not specify --ethRopstenContract in non-testnet mode")
+		}
+	}
 	if *nodeName == "" {
 		logger.Fatal("Please specify --nodeName")
 	}
@@ -344,18 +350,15 @@ func runNode(cmd *cobra.Command, args []string) {
 		logger.Fatal("Please specify --solanaUrl")
 	}
 
-	// if *terraWS == "" {
-	// 	logger.Fatal("Please specify --terraWS")
-	// }
-	// if *terraLCD == "" {
-	// 	logger.Fatal("Please specify --terraLCD")
-	// }
-	// if *terraChainID == "" {
-	// 	logger.Fatal("Please specify --terraChainID")
-	// }
-	// if *terraContract == "" {
-	// 	logger.Fatal("Please specify --terraContract")
-	// }
+	if *terraWS == "" {
+		logger.Fatal("Please specify --terraWS")
+	}
+	if *terraLCD == "" {
+		logger.Fatal("Please specify --terraLCD")
+	}
+	if *terraContract == "" {
+		logger.Fatal("Please specify --terraContract")
+	}
 
 	if *bigTablePersistenceEnabled {
 		if *bigTableGCPProject == "" {
@@ -372,8 +375,33 @@ func runNode(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	// Complain about Infura on mainnet.
+	//
+	// As it turns out, Infura has a bug where it would sometimes incorrectly round
+	// block timestamps, which causes consensus issues - the timestamp is part of
+	// the VAA and nodes using Infura would sometimes derive an incorrect VAA,
+	// accidentally attacking the network by signing a conflicting VAA.
+	//
+	// Node operators do not usually rely on Infura in the first place - doing
+	// so is insecure, since nodes blindly trust the connected nodes to verify
+	// on-chain message proofs. However, node operators sometimes used
+	// Infura during migrations where their primary node was offline, causing
+	// the aforementioned consensus oddities which were eventually found to
+	// be Infura-related. This is generally to the detriment of network security
+	// and a judgement call made by individual operators. In the case of Infura,
+	// we know it's actively dangerous so let's make an opinionated argument.
+	//
+	// Insert "I'm a sign, not a cop" meme.
+	//
+	if strings.Contains(*ethRPC, "mainnet.infura.io") ||
+		strings.Contains(*polygonRPC, "polygon-mainnet.infura.io") {
+		logger.Fatal("Infura is known to send incorrect blocks - please use your own nodes")
+	}
+
 	ethContractAddr := eth_common.HexToAddress(*ethContract)
-	//bscContractAddr := eth_common.HexToAddress(*bscContract)
+	bscContractAddr := eth_common.HexToAddress(*bscContract)
+	polygonContractAddr := eth_common.HexToAddress(*polygonContract)
+	ethRopstenContractAddr := eth_common.HexToAddress(*ethRopstenContract)
 	solAddress, err := solana_types.PublicKeyFromBase58(*solanaContract)
 	if err != nil {
 		logger.Fatal("invalid Solana contract address", zap.Error(err))
@@ -457,7 +485,7 @@ func runNode(cmd *cobra.Command, args []string) {
 		}
 		priv = devnet.DeterministicP2PPrivKeyByIndex(int64(idx))
 	} else {
-		priv, err = getOrCreateNodeKey(logger, *nodeKeyPath)
+		priv, err = common.GetOrCreateNodeKey(logger, *nodeKeyPath)
 		if err != nil {
 			logger.Fatal("Failed to load node key", zap.Error(err))
 		}
@@ -496,17 +524,29 @@ func runNode(cmd *cobra.Command, args []string) {
 			return err
 		}
 
-		// if err := supervisor.Run(ctx, "bscwatch",
-		// 	ethereum.NewEthWatcher(*bscRPC, bscContractAddr, "bsc", common.ReadinessBSCSyncing, vaa.ChainIDBSC, lockC, nil).Run); err != nil {
-		// 	return err
-		// }
+		if err := supervisor.Run(ctx, "bscwatch",
+			ethereum.NewEthWatcher(*bscRPC, bscContractAddr, "bsc", common.ReadinessBSCSyncing, vaa.ChainIDBSC, lockC, nil).Run); err != nil {
+			return err
+		}
+
+		if err := supervisor.Run(ctx, "polygonwatch",
+			ethereum.NewEthWatcher(*polygonRPC, polygonContractAddr, "polygon", common.ReadinessPolygonSyncing, vaa.ChainIDPolygon, lockC, nil).Run); err != nil {
+			return err
+		}
+
+		if *testnetMode {
+			if err := supervisor.Run(ctx, "ethropstenwatch",
+				ethereum.NewEthWatcher(*ethRopstenRPC, ethRopstenContractAddr, "ethropsten", common.ReadinessEthRopstenSyncing, vaa.ChainIDEthereumRopsten, lockC, setC).Run); err != nil {
+				return err
+			}
+		}
 
 		// Start Terra watcher only if configured
-		// logger.Info("Starting Terra watcher")
-		// if err := supervisor.Run(ctx, "terrawatch",
-		// 	terra.NewWatcher(*terraWS, *terraLCD, *terraContract, lockC, setC).Run); err != nil {
-		// 	return err
-		// }
+		logger.Info("Starting Terra watcher")
+		if err := supervisor.Run(ctx, "terrawatch",
+			terra.NewWatcher(*terraWS, *terraLCD, *terraContract, lockC, setC).Run); err != nil {
+			return err
+		}
 
 		if err := supervisor.Run(ctx, "solwatch-confirmed",
 			solana.NewSolanaWatcher(*solanaWsRPC, *solanaRPC, solAddress, lockC, rpc.CommitmentConfirmed).Run); err != nil {

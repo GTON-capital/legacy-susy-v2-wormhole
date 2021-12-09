@@ -2,12 +2,11 @@ package debug
 
 import (
 	"encoding/hex"
-	"log"
-	"strings"
-
 	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/spf13/cobra"
+	"log"
+	"strings"
 )
 
 var decodeVaaCmd = &cobra.Command{

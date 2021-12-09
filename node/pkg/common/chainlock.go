@@ -1,9 +1,8 @@
 package common
 
 import (
-	"time"
-
 	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 )

@@ -5,9 +5,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"strings"
-	"time"
-
 	node_common "github.com/SuSy-One/susy-v2/node/pkg/common"
 	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 	"github.com/SuSy-One/susy-v2/node/pkg/version"
@@ -15,6 +12,8 @@ import (
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"strings"
+	"time"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
@@ -194,6 +193,11 @@ func Run(obsvC chan *gossipv1.SignedObservation, sendC chan []byte, signedInC ch
 		}()
 
 		go func() {
+			// Disable heartbeat when no node name is provided (spy mode)
+			if nodeName == "" {
+				return
+			}
+
 			ctr := int64(0)
 			tick := time.NewTicker(15 * time.Second)
 			defer tick.Stop()

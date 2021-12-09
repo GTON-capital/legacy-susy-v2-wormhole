@@ -2,13 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-
-	"github.com/certusone/wormhole/node/cmd/debug"
-	"github.com/certusone/wormhole/node/pkg/version"
-
 	"github.com/SuSy-One/susy-v2/node/cmd/debug"
+	"github.com/SuSy-One/susy-v2/node/cmd/spy"
 	"github.com/SuSy-One/susy-v2/node/pkg/version"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -49,7 +46,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.guardiand.yaml)")
 	rootCmd.AddCommand(guardiand.NodeCmd)
-	rootCmd.AddCommand(guardiand.NodeKeygenCmd)
+	rootCmd.AddCommand(spy.SpyCmd)
 	rootCmd.AddCommand(guardiand.KeygenCmd)
 	rootCmd.AddCommand(guardiand.AdminCmd)
 	rootCmd.AddCommand(guardiand.TemplateCmd)
@@ -71,9 +68,8 @@ func initConfig() {
 		}
 
 		// Search config in home directory with name ".guardiand" (without extension).
-		viper.SetConfigType("yaml")
 		viper.AddConfigPath(home)
-		viper.SetConfigName(".guardiand")
+		viper.SetConfigName(".guardiand.yaml")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
@@ -81,7 +77,5 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
-	} else {
-		fmt.Println("Error using config file:", err.Error())
 	}
 }

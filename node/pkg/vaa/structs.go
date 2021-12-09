@@ -39,7 +39,7 @@ type (
 		// Payload of the message
 		Payload []byte
 	}
-	ChainIDNameMap map[ChainID]string
+
 	// ChainID of a Wormhole chain
 	ChainID uint16
 	// Action of a VAA
@@ -60,12 +60,6 @@ type (
 	SignatureData [65]byte
 )
 
-var ChainIdNameMatch ChainIDNameMap
-
-func init() {
-	ChainIdNameMatch = make(ChainIDNameMap)
-	ChainIdNameMatch[1] = "solana"
-}
 func (a Address) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%s"`, a)), nil
 }
@@ -87,11 +81,45 @@ func (a SignatureData) String() string {
 }
 
 func (c ChainID) String() string {
-	name, ok := ChainIdNameMatch[c]
-	if ok {
-		return name
+	switch c {
+	case ChainIDUnset:
+		return "unset"
+	case ChainIDSolana:
+		return "solana"
+	case ChainIDEthereum:
+		return "ethereum"
+	case ChainIDTerra:
+		return "terra"
+	case ChainIDBSC:
+		return "bsc"
+	case ChainIDPolygon:
+		return "polygon"
+	case ChainIDEthereumRopsten:
+		return "ethereum-ropsten"
+	default:
+		return fmt.Sprintf("unknown chain ID: %d", c)
 	}
-	return fmt.Sprintf("unknown chain ID: %d", c)
+}
+
+func ChainIDFromString(s string) (ChainID, error) {
+	s = strings.ToLower(s)
+
+	switch s {
+	case "solana":
+		return ChainIDSolana, nil
+	case "ethereum":
+		return ChainIDEthereum, nil
+	case "terra":
+		return ChainIDTerra, nil
+	case "bsc":
+		return ChainIDBSC, nil
+	case "polygon":
+		return ChainIDPolygon, nil
+	case "ethereum-ropsten":
+		return ChainIDEthereumRopsten, nil
+	default:
+		return ChainIDUnset, fmt.Errorf("unknown chain ID: %s", s)
+	}
 }
 
 const (

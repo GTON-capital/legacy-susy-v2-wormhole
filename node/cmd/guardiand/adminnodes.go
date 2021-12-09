@@ -3,15 +3,14 @@ package guardiand
 import (
 	"context"
 	"fmt"
+	publicrpcv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/publicrpc/v1"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
+	"github.com/spf13/cobra"
 	"log"
 	"os"
 	"sort"
 	"text/tabwriter"
 	"time"
-
-	publicrpcv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/publicrpc/v1"
-	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
-	"github.com/spf13/cobra"
 )
 
 // How to test in container:
