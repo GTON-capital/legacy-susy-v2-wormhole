@@ -1,5 +1,11 @@
-import { Token, TOKEN_PROGRAM_ID, u64 } from "@solana/spl-token";
-import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
+import { AccountLayout, Token, TOKEN_PROGRAM_ID, u64 } from "@solana/spl-token";
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
 import { MsgExecuteContract } from "@terra-money/terra.js";
 import { BigNumber, ethers } from "ethers";
 import { isNativeDenom } from "..";
@@ -219,19 +225,40 @@ export async function transferNativeSol(
   const ix = ixFromRust(
     transfer_native_ix(
       tokenBridgeAddress,
-      {
-        initiate_transfer: {
-          asset: tokenAddress,
-          amount: amount,
-          recipient_chain: recipientChain,
-          recipient: Buffer.from(recipientAddress).toString("base64"),
-          fee: "0",
-          nonce: nonce,
-        },
-      },
-      { uluna: 10000 }
-    ),
-  ];
+      bridgeAddress,
+      payerAddress,
+      messageKey.publicKey.toString(),
+      ancillaryKeypair.publicKey.toString(),
+      WSOL_ADDRESS,
+      nonce,
+      amount,
+      fee,
+      targetAddress,
+      targetChain
+    )
+  );
+
+  //Close the ancillary account for cleanup. Payer address receives any remaining funds
+  const closeAccountIx = Token.createCloseAccountInstruction(
+    TOKEN_PROGRAM_ID,
+    ancillaryKeypair.publicKey, //account to close
+    payerPublicKey, //Remaining funds destination
+    payerPublicKey, //authority
+    []
+  );
+
+  const { blockhash } = await connection.getRecentBlockhash();
+  const transaction = new Transaction();
+  transaction.recentBlockhash = blockhash;
+  transaction.feePayer = new PublicKey(payerAddress);
+  transaction.add(createAncillaryAccountIx);
+  transaction.add(initialBalanceTransferIx);
+  transaction.add(initAccountIx);
+  transaction.add(transferIx, approvalIx, ix);
+  transaction.add(closeAccountIx);
+  transaction.partialSign(messageKey);
+  transaction.partialSign(ancillaryKeypair);
+  return transaction;
 }
 
 export async function transferFromSolana(
