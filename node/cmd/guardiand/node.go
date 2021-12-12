@@ -56,6 +56,9 @@ var (
 	guardianKeyPath *string
 	solanaContract  *string
 
+	ergoRPC *string
+	ergoContract *string
+
 	ethRPC      *string
 	ethContract *string
 
@@ -115,6 +118,9 @@ func init() {
 
 	guardianKeyPath = NodeCmd.Flags().String("guardianKey", "", "Path to guardian key (required)")
 	solanaContract = NodeCmd.Flags().String("solanaContract", "", "Address of the Solana program (required)")
+
+	ergoRPC = NodeCmd.Flags().String("ergoRPC", "", "Ergo RPC URL")
+	ergoContract = NodeCmd.Flags().String("ergoContract", "", "Address of the ErgoScript (required)")
 
 	ethRPC = NodeCmd.Flags().String("ethRPC", "", "Ethereum RPC URL")
 	ethContract = NodeCmd.Flags().String("ethContract", "", "Ethereum contract address")
