@@ -11,6 +11,8 @@ pipeline:
     repo: susyone/susy
     tags: ["latest", "validatorv2"]
     secrets: [docker_username,docker_password]
+    environment:
+      DOCKER_BUILDKIT: 1
     when:
       branch:
         - feature/drone
@@ -22,6 +24,8 @@ pipeline:
     repo: susyone/susyclient
     tags: ["latest", "validatorv2"]
     secrets: [docker_username,docker_password]
+    environment:
+      DOCKER_BUILDKIT: 1
     when:
       branch:
         - feature/drone
@@ -33,6 +37,8 @@ pipeline:
     repo: susyone/susyproto
     tags: ["latest", "validatorv2"]
     secrets: [docker_username,docker_password]
+    environment:
+      DOCKER_BUILDKIT: 1
     when:
       branch:
         - feature/drone
