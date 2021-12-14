@@ -1,0 +1,38 @@
+eind: pipeline
+type: docker
+name: susy-web
+
+
+pipeline:
+  publish-node:
+    image: plugins/docker
+    dockerfile: ./Dockerfile.node
+    context: .
+    repo: susyone/susy
+    tags: ["latest", "validatorv2"]
+    secrets: [docker_username,docker_password]
+    when:
+      branch:
+        - feature/drone
+
+  publish-client:
+    image: plugins/docker
+    dockerfile: ./Dockerfile.client
+    context: .
+    repo: susyone/susyclient
+    tags: ["latest", "validatorv2"]
+    secrets: [docker_username,docker_password]
+    when:
+      branch:
+        - feature/drone
+
+  publish-client:
+    image: plugins/docker
+    dockerfile: ./Dockerfile.proto
+    context: .
+    repo: susyone/susyproto
+    tags: ["latest", "validatorv2"]
+    secrets: [docker_username,docker_password]
+    when:
+      branch:
+        - feature/drone
