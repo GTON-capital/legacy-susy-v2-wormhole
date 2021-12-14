@@ -8,7 +8,7 @@
   "files": [
     "lib/**/*"
   ],
-  "repository": "https://github.com/certusone/wormhole/tree/dev.v2/examples",
+  "repository": "https://github.com/SuSy-One/susy-v2/tree/dev.v2/examples",
   "scripts": {
     "build": "tsc",
     "start": "npm run build && node lib/index.js",

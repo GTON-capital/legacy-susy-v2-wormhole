@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/SuSy-One/susy-v2/node/pkg/common"
 	"io/ioutil"
 	"log"
 	"os"
@@ -36,8 +37,8 @@ var KeygenCmd = &cobra.Command{
 }
 
 func runKeygen(cmd *cobra.Command, args []string) {
-	// lockMemory()
-	setRestrictiveUmask()
+	common.LockMemory()
+	common.SetRestrictiveUmask()
 
 	log.Print("Creating new key at ", args[0])
 
@@ -106,11 +107,10 @@ func writeGuardianKey(key *ecdsa.PrivateKey, description string, filename string
 	// protobuf encoding with field tags to make sure that we can safely evolve it in the future.
 	b, err := proto.Marshal(m)
 	if err != nil {
-		fmt.Println("error on masrshal")
 		panic(err)
 	}
 
-	f, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0666)
+	f, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
@@ -123,7 +123,6 @@ func writeGuardianKey(key *ecdsa.PrivateKey, description string, filename string
 	}
 	a, err := armor.Encode(f, GuardianKeyArmoredBlock, headers)
 	if err != nil {
-		fmt.Println("error occured on armor encode")
 		panic(err)
 	}
 	_, err = a.Write(b)

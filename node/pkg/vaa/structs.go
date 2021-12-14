@@ -87,24 +87,11 @@ func (a SignatureData) String() string {
 }
 
 func (c ChainID) String() string {
-	switch c {
-	case ChainIDUnset:
-		return "unset"
-	case ChainIDSolana:
-		return "solana"
-	case ChainIDEthereum:
-		return "ethereum"
-	case ChainIDTerra:
-		return "terra"
-	case ChainIDBSC:
-		return "bsc"
-	case ChainIDPolygon:
-		return "polygon"
-	case ChainIDEthereumRopsten:
-		return "ethereum-ropsten"
-	default:
-		return ChainIDUnset, fmt.Errorf("unknown chain ID: %s", s)
+	name, ok := ChainIdNameMatch[c]
+	if ok {
+		return name
 	}
+	return fmt.Sprintf("unknown chain ID: %d", c)
 }
 
 func ChainIDFromString(s string) (ChainID, error) {
