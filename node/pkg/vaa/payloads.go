@@ -3,9 +3,6 @@ package vaa
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
-	"reflect"
-
 	"github.com/ethereum/go-ethereum/common"
 )
 

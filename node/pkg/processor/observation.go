@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mr-tron/base58"
+
 	node_common "github.com/SuSy-One/susy-v2/node/pkg/common"
 	"github.com/SuSy-One/susy-v2/node/pkg/db"
-	"github.com/SuSy-One/susy-v2/node/pkg/reporter"
+	// "github.com/SuSy-One/susy-v2/node/pkg/reporter"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 

@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/certusone/wormhole/node/cmd/debug"
-	"github.com/certusone/wormhole/node/pkg/version"
-
 	"github.com/SuSy-One/susy-v2/node/cmd/debug"
 	"github.com/SuSy-One/susy-v2/node/pkg/version"
 
@@ -16,6 +13,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/SuSy-One/susy-v2/node/cmd/guardiand"
+	"github.com/SuSy-One/susy-v2/node/pkg/common"
 )
 
 var cfgFile string
@@ -49,7 +47,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.guardiand.yaml)")
 	rootCmd.AddCommand(guardiand.NodeCmd)
-	rootCmd.AddCommand(guardiand.NodeKeygenCmd)
+	rootCmd.AddCommand(common.NodeKeygenCmd)
 	rootCmd.AddCommand(guardiand.KeygenCmd)
 	rootCmd.AddCommand(guardiand.AdminCmd)
 	rootCmd.AddCommand(guardiand.TemplateCmd)

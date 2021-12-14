@@ -1,6 +1,6 @@
 module github.com/SuSy-One/susy-v2/node
 
-go 1.16
+go 1.17
 
 require (
 	cloud.google.com/go/bigtable v1.10.1
