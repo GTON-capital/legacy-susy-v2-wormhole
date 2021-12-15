@@ -1,13 +1,13 @@
 import { makeStyles, Typography } from "@material-ui/core";
 import { useSelector } from "react-redux";
 import {
+  selectSourceWalletAddress,
   selectTransferAmount,
   selectTransferSourceChain,
   selectTransferSourceParsedTokenAccount,
 } from "../../store/selectors";
 import { CHAINS_BY_ID } from "../../utils/consts";
 import SmartAddress from "../SmartAddress";
-import TokenBlacklistWarning from "./TokenBlacklistWarning";
 
 const useStyles = makeStyles((theme) => ({
   description: {
@@ -21,6 +21,7 @@ export default function SourcePreview() {
   const sourceParsedTokenAccount = useSelector(
     selectTransferSourceParsedTokenAccount
   );
+  const sourceWalletAddress = useSelector(selectSourceWalletAddress);
   const sourceAmount = useSelector(selectTransferAmount);
 
   const explainerContent =
@@ -31,7 +32,13 @@ export default function SourcePreview() {
           chainId={sourceChain}
           parsedTokenAccount={sourceParsedTokenAccount}
         />
-        <span>from {CHAINS_BY_ID[sourceChain].name}</span>
+        {sourceWalletAddress ? (
+          <>
+            <span>from</span>
+            <SmartAddress chainId={sourceChain} address={sourceWalletAddress} />
+          </>
+        ) : null}
+        <span>on {CHAINS_BY_ID[sourceChain].name}</span>
       </>
     ) : (
       ""
@@ -46,11 +53,6 @@ export default function SourcePreview() {
       >
         {explainerContent}
       </Typography>
-      <TokenBlacklistWarning
-        sourceChain={sourceChain}
-        tokenAddress={sourceParsedTokenAccount?.mintKey}
-        symbol={sourceParsedTokenAccount?.symbol}
-      />
     </>
   );
 }

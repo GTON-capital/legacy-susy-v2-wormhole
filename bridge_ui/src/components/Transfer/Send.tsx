@@ -1,4 +1,4 @@
-import { CHAIN_ID_ETH } from "@certusone/wormhole-sdk";
+import { isEVMChain } from "@certusone/wormhole-sdk";
 import { Checkbox, FormControlLabel } from "@material-ui/core";
 import { Alert } from "@material-ui/lab";
 import { ethers } from "ethers";
@@ -24,17 +24,31 @@ import KeyAndBalance from "../KeyAndBalance";
 import ShowTx from "../ShowTx";
 import StepDescription from "../StepDescription";
 import TransactionProgress from "../TransactionProgress";
+import SendConfirmationDialog from "./SendConfirmationDialog";
 import WaitingForWalletMessage from "./WaitingForWalletMessage";
 
 function Send() {
   const { handleClick, disabled, showLoader } = useHandleTransfer();
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const handleTransferClick = useCallback(() => {
+    setIsConfirmOpen(true);
+  }, []);
+  const handleConfirmClick = useCallback(() => {
+    handleClick();
+    setIsConfirmOpen(false);
+  }, [handleClick]);
+  const handleConfirmClose = useCallback(() => {
+    setIsConfirmOpen(false);
+  }, []);
 
   const sourceChain = useSelector(selectTransferSourceChain);
   const sourceAsset = useSelector(selectTransferSourceAsset);
   const sourceAmount = useSelector(selectTransferAmount);
-  const sourceDecimals = useSelector(
+  const sourceParsedTokenAccount = useSelector(
     selectTransferSourceParsedTokenAccount
-  )?.decimals;
+  );
+  const sourceDecimals = sourceParsedTokenAccount?.decimals;
+  const sourceIsNative = sourceParsedTokenAccount?.isNativeAsset;
   const sourceAmountParsed =
     sourceDecimals !== undefined &&
     sourceDecimals !== null &&
@@ -68,10 +82,14 @@ function Send() {
     isAllowanceFetching,
     isApproveProcessing,
     approveAmount,
-  } = useAllowance(sourceChain, sourceAsset, sourceAmountParsed || undefined);
+  } = useAllowance(
+    sourceChain,
+    sourceAsset,
+    sourceAmountParsed || undefined,
+    sourceIsNative
+  );
 
-  const approveButtonNeeded =
-    sourceChain === CHAIN_ID_ETH && !sufficientAllowance;
+  const approveButtonNeeded = isEVMChain(sourceChain) && !sufficientAllowance;
   const notOne = shouldApproveUnlimited || sourceAmountParsed !== oneParsed;
   const isDisabled =
     !isReady ||
@@ -112,7 +130,7 @@ function Send() {
         Transfer the tokens to the Wormhole Token Bridge.
       </StepDescription>
       <KeyAndBalance chainId={sourceChain} />
-      <Alert severity="info">
+      <Alert severity="info" variant="outlined">
         This will initiate the transfer on {CHAINS_BY_ID[sourceChain].name} and
         wait for finalization. If you navigate away from this page before
         completing Step 4, you will have to perform the recovery workflow to
@@ -144,14 +162,21 @@ function Send() {
           </ButtonWithLoader>
         </>
       ) : (
-        <ButtonWithLoader
-          disabled={isDisabled}
-          onClick={handleClick}
-          showLoader={showLoader}
-          error={errorMessage}
-        >
-          Transfer
-        </ButtonWithLoader>
+        <>
+          <ButtonWithLoader
+            disabled={isDisabled}
+            onClick={handleTransferClick}
+            showLoader={showLoader}
+            error={errorMessage}
+          >
+            Transfer
+          </ButtonWithLoader>
+          <SendConfirmationDialog
+            open={isConfirmOpen}
+            onClick={handleConfirmClick}
+            onClose={handleConfirmClose}
+          />
+        </>
       )}
       <WaitingForWalletMessage />
       {transferTx ? <ShowTx chainId={sourceChain} tx={transferTx} /> : null}

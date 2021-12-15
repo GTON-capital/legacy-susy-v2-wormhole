@@ -2,6 +2,7 @@ package solana
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	eth_common "github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/gagliardetto/solana-go/rpc/jsonrpc"
 	"github.com/mr-tron/base58"
 	"github.com/near/borsh-go"
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,7 +29,6 @@ type SolanaWatcher struct {
 	rpcUrl       string
 	commitment   rpc.CommitmentType
 	messageEvent chan *common.MessagePublication
-	logger       *zap.Logger
 	rpcClient    *rpc.Client
 }
 
@@ -63,6 +64,7 @@ const rpcTimeout = time.Second * 5
 
 // Maximum retries for Solana fetching
 const maxRetries = 5
+const retryDelay = 5 * time.Second
 
 type ConsistencyLevel uint8
 
@@ -117,7 +119,7 @@ func (s *SolanaWatcher) Run(ctx context.Context) error {
 		ContractAddress: contractAddr,
 	})
 
-	s.logger = supervisor.Logger(ctx)
+	logger := supervisor.Logger(ctx)
 	errC := make(chan error)
 	var lastSlot uint64
 
@@ -125,10 +127,35 @@ func (s *SolanaWatcher) Run(ctx context.Context) error {
 		timer := time.NewTicker(time.Second * 1)
 		defer timer.Stop()
 
+		var recovery <-chan time.Time
+		date := recoveryDate.Sub(time.Now().UTC())
+		if date >= 0 && s.commitment == rpc.CommitmentFinalized {
+			logger.Info("waiting for scheduled recovery", zap.Duration("until", date))
+			recovery = time.NewTimer(date).C
+		} else {
+			recovery = make(<-chan time.Time)
+		}
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
+			case <-recovery:
+				logger.Info("executing scheduled recovery")
+
+				rCtx, cancel := context.WithTimeout(ctx, rpcTimeout)
+				defer cancel()
+
+				accs, err := fetchRecoveryConfig()
+				if err != nil {
+					logger.Error("failed to fetch recovery config", zap.Error(err))
+				}
+
+				logger.Info("fetched recovery accounts", zap.Strings("accounts", accs))
+
+				for _, acc := range accs {
+					s.fetchMessageAccount(rCtx, logger, solana.MustPublicKeyFromBase58(acc), 0)
+				}
 			case <-timer.C:
 				// Get current slot height
 				rCtx, cancel := context.WithTimeout(ctx, rpcTimeout)
@@ -151,45 +178,24 @@ func (s *SolanaWatcher) Run(ctx context.Context) error {
 					Height:          int64(slot),
 					ContractAddress: contractAddr,
 				})
-				s.logger.Info("fetched current Solana height",
+				logger.Info("fetched current Solana height",
 					zap.String("commitment", string(s.commitment)),
 					zap.Uint64("slot", slot),
 					zap.Uint64("lastSlot", lastSlot),
 					zap.Uint64("pendingSlots", slot-lastSlot),
 					zap.Duration("took", time.Since(start)))
 
-				// Determine which slots we're missing
-				//
-				// Get list of confirmed blocks since the last request. The result
-				// won't contain skipped slots.
 				rangeStart := lastSlot + 1
 				rangeEnd := slot
-				rCtx, cancel = context.WithTimeout(ctx, rpcTimeout)
-				defer cancel()
-				start = time.Now()
-				slots, err := s.rpcClient.GetConfirmedBlocks(rCtx, rangeStart, &rangeEnd, s.commitment)
-				queryLatency.WithLabelValues("get_confirmed_blocks", string(s.commitment)).Observe(time.Since(start).Seconds())
-				if err != nil {
-					p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSolana, 1)
-					solanaConnectionErrors.WithLabelValues(string(s.commitment), "get_confirmed_blocks_error").Inc()
-					errC <- err
-					return
-				}
 
-				s.logger.Info("fetched slots in range",
+				logger.Info("fetching slots in range",
 					zap.Uint64("from", rangeStart), zap.Uint64("to", rangeEnd),
 					zap.Duration("took", time.Since(start)),
 					zap.String("commitment", string(s.commitment)))
 
 				// Requesting each slot
-				for _, slot := range slots {
-					if slot <= lastSlot {
-						// Skip out-of-range result
-						// https://github.com/solana-labs/solana/issues/18946
-						continue
-					}
-
-					go s.retryFetchBlock(ctx, slot, 0)
+				for slot := rangeStart; slot <= rangeEnd; slot++ {
+					go s.retryFetchBlock(ctx, logger, slot, 0)
 				}
 
 				lastSlot = slot
@@ -205,29 +211,34 @@ func (s *SolanaWatcher) Run(ctx context.Context) error {
 	}
 }
 
-func (s *SolanaWatcher) retryFetchBlock(ctx context.Context, slot uint64, retry uint) {
-	ok := s.fetchBlock(ctx, slot)
+func (s *SolanaWatcher) retryFetchBlock(ctx context.Context, logger *zap.Logger, slot uint64, retry uint) {
+	ok := s.fetchBlock(ctx, logger, slot, 0)
 
 	if !ok {
 		if retry >= maxRetries {
-			s.logger.Error("max retries for block",
+			logger.Error("max retries for block",
 				zap.Uint64("slot", slot),
 				zap.String("commitment", string(s.commitment)),
 				zap.Uint("retry", retry))
 			return
 		}
 
-		s.logger.Info("retrying block",
+		time.Sleep(retryDelay)
+
+		logger.Info("retrying block",
 			zap.Uint64("slot", slot),
 			zap.String("commitment", string(s.commitment)),
 			zap.Uint("retry", retry))
 
-		go s.retryFetchBlock(ctx, slot, retry+1)
+		go s.retryFetchBlock(ctx, logger, slot, retry+1)
 	}
 }
 
-func (s *SolanaWatcher) fetchBlock(ctx context.Context, slot uint64) bool {
-	s.logger.Debug("requesting block", zap.Uint64("slot", slot), zap.String("commitment", string(s.commitment)))
+func (s *SolanaWatcher) fetchBlock(ctx context.Context, logger *zap.Logger, slot uint64, emptyRetry uint) (ok bool) {
+	logger.Debug("requesting block",
+		zap.Uint64("slot", slot),
+		zap.String("commitment", string(s.commitment)),
+		zap.Uint("empty_retry", emptyRetry))
 	rCtx, cancel := context.WithTimeout(ctx, rpcTimeout)
 	defer cancel()
 	start := time.Now()
@@ -241,22 +252,47 @@ func (s *SolanaWatcher) fetchBlock(ctx context.Context, slot uint64) bool {
 
 	queryLatency.WithLabelValues("get_confirmed_block", string(s.commitment)).Observe(time.Since(start).Seconds())
 	if err != nil {
-		p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSolana, 1)
-		solanaConnectionErrors.WithLabelValues(string(s.commitment), "get_confirmed_block_error").Inc()
-		s.logger.Error("failed to request block", zap.Error(err), zap.Uint64("slot", slot),
-			zap.String("commitment", string(s.commitment)))
+		var rpcErr *jsonrpc.RPCError
+		if errors.As(err, &rpcErr) && (rpcErr.Code == -32007 /* SLOT_SKIPPED */ || rpcErr.Code == -32004 /* BLOCK_NOT_AVAILABLE */) {
+			logger.Info("empty slot", zap.Uint64("slot", slot),
+				zap.Int("code", rpcErr.Code),
+				zap.String("commitment", string(s.commitment)))
+
+			// TODO(leo): clean this up once we know what's happening
+			// https://github.com/solana-labs/solana/issues/20370
+			var maxEmptyRetry uint
+			if s.commitment == rpc.CommitmentFinalized {
+				maxEmptyRetry = 5
+			} else {
+				maxEmptyRetry = 1
+			}
+
+			// Schedule a single retry just in case the Solana node was confused about the block being missing.
+			if emptyRetry < maxEmptyRetry {
+				go func() {
+					time.Sleep(retryDelay)
+					s.fetchBlock(ctx, logger, slot, emptyRetry+1)
+				}()
+			}
+			return true
+		} else {
+			logger.Error("failed to request block", zap.Error(err), zap.Uint64("slot", slot),
+				zap.String("commitment", string(s.commitment)))
+			p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSolana, 1)
+			solanaConnectionErrors.WithLabelValues(string(s.commitment), "get_confirmed_block_error").Inc()
+		}
 		return false
 	}
 
 	if out == nil {
 		solanaConnectionErrors.WithLabelValues(string(s.commitment), "get_confirmed_block_error").Inc()
-		s.logger.Error("nil response when requesting block", zap.Error(err), zap.Uint64("slot", slot),
+		logger.Error("nil response when requesting block", zap.Error(err), zap.Uint64("slot", slot),
 			zap.String("commitment", string(s.commitment)))
 		p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSolana, 1)
 		return false
 	}
 
-	s.logger.Info("fetched block",
+	logger.Info("fetched block",
 		zap.Uint64("slot", slot),
 		zap.Int("num_tx", len(out.Transactions)),
 		zap.Duration("took", time.Since(start)),
@@ -275,17 +311,18 @@ OUTER:
 			continue
 		}
 
-		s.logger.Info("found Wormhole transaction",
+		logger.Info("found Wormhole transaction",
 			zap.Stringer("signature", signature),
 			zap.Uint64("slot", slot),
 			zap.String("commitment", string(s.commitment)))
 
 		// Find top-level instructions
-		for _, inst := range tx.Transaction.Message.Instructions {
-			found, err := s.processInstruction(ctx, slot, inst, programIndex, tx)
+		for i, inst := range tx.Transaction.Message.Instructions {
+			found, err := s.processInstruction(ctx, logger, slot, inst, programIndex, tx, signature, i)
 			if err != nil {
-				s.logger.Error("malformed Wormhole instruction",
+				logger.Error("malformed Wormhole instruction",
 					zap.Error(err),
+					zap.Int("idx", i),
 					zap.Stringer("signature", signature),
 					zap.Uint64("slot", slot),
 					zap.String("commitment", string(s.commitment)),
@@ -309,7 +346,7 @@ OUTER:
 		if err != nil {
 			p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSolana, 1)
 			solanaConnectionErrors.WithLabelValues(string(s.commitment), "get_confirmed_transaction_error").Inc()
-			s.logger.Error("failed to request transaction",
+			logger.Error("failed to request transaction",
 				zap.Error(err),
 				zap.Uint64("slot", slot),
 				zap.String("commitment", string(s.commitment)),
@@ -317,18 +354,19 @@ OUTER:
 			return false
 		}
 
-		s.logger.Info("fetched transaction",
+		logger.Info("fetched transaction",
 			zap.Uint64("slot", slot),
 			zap.String("commitment", string(s.commitment)),
 			zap.Stringer("signature", signature),
 			zap.Duration("took", time.Since(start)))
 
 		for _, inner := range tr.Meta.InnerInstructions {
-			for _, inst := range inner.Instructions {
-				_, err := s.processInstruction(ctx, slot, inst, programIndex, tx)
+			for i, inst := range inner.Instructions {
+				_, err := s.processInstruction(ctx, logger, slot, inst, programIndex, tx, signature, i)
 				if err != nil {
-					s.logger.Error("malformed Wormhole instruction",
+					logger.Error("malformed Wormhole instruction",
 						zap.Error(err),
+						zap.Int("idx", i),
 						zap.Stringer("signature", signature),
 						zap.Uint64("slot", slot),
 						zap.String("commitment", string(s.commitment)))
@@ -337,11 +375,22 @@ OUTER:
 		}
 	}
 
+	if emptyRetry > 0 {
+		logger.Warn("SOLANA BUG: skipped or unavailable block retrieved on retry attempt",
+			zap.Uint("empty_retry", emptyRetry),
+			zap.Uint64("slot", slot),
+			zap.String("commitment", string(s.commitment)))
+	}
+
 	return true
 }
 
-func (s *SolanaWatcher) processInstruction(ctx context.Context, slot uint64, inst solana.CompiledInstruction, programIndex uint16, tx rpc.TransactionWithMeta) (bool, error) {
+func (s *SolanaWatcher) processInstruction(ctx context.Context, logger *zap.Logger, slot uint64, inst solana.CompiledInstruction, programIndex uint16, tx rpc.TransactionWithMeta, signature solana.Signature, idx int) (bool, error) {
 	if inst.ProgramIDIndex != programIndex {
+		return false, nil
+	}
+
+	if inst.Data[0] != postMessageInstructionID {
 		return false, nil
 	}
 
@@ -350,17 +399,14 @@ func (s *SolanaWatcher) processInstruction(ctx context.Context, slot uint64, ins
 			len(inst.Accounts), postMessageInstructionNumAccounts)
 	}
 
-	if inst.Data[0] != postMessageInstructionID {
-		return false, fmt.Errorf("invalid postMessage instruction ID, got: %d", inst.Data[0])
-	}
-
 	// Decode instruction data (UNTRUSTED)
 	var data PostMessageData
 	if err := borsh.Deserialize(&data, inst.Data[1:]); err != nil {
 		return false, fmt.Errorf("failed to deserialize instruction data: %w", err)
 	}
 
-	s.logger.Info("post message data", zap.Any("deserialized_data", data))
+	logger.Info("post message data", zap.Any("deserialized_data", data),
+		zap.Stringer("signature", signature), zap.Uint64("slot", slot), zap.Int("idx", idx))
 
 	level, err := data.ConsistencyLevel.Commitment()
 	if err != nil {
@@ -373,12 +419,41 @@ func (s *SolanaWatcher) processInstruction(ctx context.Context, slot uint64, ins
 
 	// The second account in a well-formed Wormhole instruction is the VAA program account.
 	acc := tx.Transaction.Message.AccountKeys[inst.Accounts[1]]
-	go s.fetchMessageAccount(ctx, acc, slot)
+
+	logger.Info("fetching VAA account", zap.Stringer("acc", acc),
+		zap.Stringer("signature", signature), zap.Uint64("slot", slot), zap.Int("idx", idx))
+
+	go s.retryFetchMessageAccount(ctx, logger, acc, slot, 0)
 
 	return true, nil
 }
 
-func (s *SolanaWatcher) fetchMessageAccount(ctx context.Context, acc solana.PublicKey, slot uint64) {
+func (s *SolanaWatcher) retryFetchMessageAccount(ctx context.Context, logger *zap.Logger, acc solana.PublicKey, slot uint64, retry uint) {
+	retryable := s.fetchMessageAccount(ctx, logger, acc, slot)
+
+	if retryable {
+		if retry >= maxRetries {
+			logger.Error("max retries for account",
+				zap.Uint64("slot", slot),
+				zap.Stringer("account", acc),
+				zap.String("commitment", string(s.commitment)),
+				zap.Uint("retry", retry))
+			return
+		}
+
+		time.Sleep(retryDelay)
+
+		logger.Info("retrying account",
+			zap.Uint64("slot", slot),
+			zap.Stringer("account", acc),
+			zap.String("commitment", string(s.commitment)),
+			zap.Uint("retry", retry))
+
+		go s.retryFetchMessageAccount(ctx, logger, acc, slot, retry+1)
+	}
+}
+
+func (s *SolanaWatcher) fetchMessageAccount(ctx context.Context, logger *zap.Logger, acc solana.PublicKey, slot uint64) (retryable bool) {
 	// Fetching account
 	rCtx, cancel := context.WithTimeout(ctx, rpcTimeout)
 	defer cancel()
@@ -391,50 +466,51 @@ func (s *SolanaWatcher) fetchMessageAccount(ctx context.Context, acc solana.Publ
 	if err != nil {
 		p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSolana, 1)
 		solanaConnectionErrors.WithLabelValues(string(s.commitment), "get_account_info_error").Inc()
-		s.logger.Error("failed to request account",
+		logger.Error("failed to request account",
 			zap.Error(err),
 			zap.Uint64("slot", slot),
 			zap.String("commitment", string(s.commitment)),
 			zap.Stringer("account", acc))
-		return
+		return true
 	}
 
 	if !info.Value.Owner.Equals(s.contract) {
 		p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSolana, 1)
 		solanaConnectionErrors.WithLabelValues(string(s.commitment), "account_owner_mismatch").Inc()
-		s.logger.Error("account has invalid owner",
+		logger.Error("account has invalid owner",
 			zap.Uint64("slot", slot),
 			zap.String("commitment", string(s.commitment)),
 			zap.Stringer("account", acc),
 			zap.Stringer("unexpected_owner", info.Value.Owner))
-		return
+		return false
 	}
 
 	data := info.Value.Data.GetBinary()
 	if string(data[:3]) != "msg" {
 		p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDSolana, 1)
 		solanaConnectionErrors.WithLabelValues(string(s.commitment), "bad_account_data").Inc()
-		s.logger.Error("account is not a message account",
+		logger.Error("account is not a message account",
 			zap.Uint64("slot", slot),
 			zap.String("commitment", string(s.commitment)),
 			zap.Stringer("account", acc))
-		return
+		return false
 	}
 
-	s.logger.Info("found valid VAA account",
+	logger.Info("found valid VAA account",
 		zap.Uint64("slot", slot),
 		zap.String("commitment", string(s.commitment)),
 		zap.Stringer("account", acc),
 		zap.Binary("data", data))
 
-	s.processMessageAccount(data, acc)
+	s.processMessageAccount(logger, data, acc)
+	return false
 }
 
-func (s *SolanaWatcher) processMessageAccount(data []byte, acc solana.PublicKey) {
+func (s *SolanaWatcher) processMessageAccount(logger *zap.Logger, data []byte, acc solana.PublicKey) {
 	proposal, err := ParseTransferOutProposal(data)
 	if err != nil {
 		solanaAccountSkips.WithLabelValues("parse_transfer_out").Inc()
-		s.logger.Error(
+		logger.Error(
 			"failed to parse transfer proposal",
 			zap.Stringer("account", acc),
 			zap.Binary("data", data),
@@ -458,7 +534,7 @@ func (s *SolanaWatcher) processMessageAccount(data []byte, acc solana.PublicKey)
 
 	solanaMessagesConfirmed.Inc()
 
-	s.logger.Info("message observed",
+	logger.Info("message observed",
 		zap.Stringer("account", acc),
 		zap.Time("timestamp", observation.Timestamp),
 		zap.Uint32("nonce", observation.Nonce),

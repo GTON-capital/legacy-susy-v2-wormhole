@@ -6,14 +6,16 @@ use serde::{
 };
 
 use cosmwasm_std::{
+    Addr,
     Binary,
-    HumanAddr,
     Uint128,
 };
 use cw20::Expiration;
 
+type HumanAddr = String;
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct InitMsg {
+pub struct InstantiateMsg {
     pub name: String,
     pub symbol: String,
     pub asset_chain: u16,
@@ -37,7 +39,11 @@ pub struct InitMint {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleMsg {
+pub struct MigrateMsg {}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecuteMsg {
     /// Implements CW20. Transfer is a base message to move tokens to another account without triggering actions
     Transfer {
         recipient: HumanAddr,
@@ -50,7 +56,7 @@ pub enum HandleMsg {
     Send {
         contract: HumanAddr,
         amount: Uint128,
-        msg: Option<Binary>,
+        msg: Binary,
     },
     /// Implements CW20 "mintable" extension. If authorized, creates amount new tokens
     /// and adds to the recipient balance.
@@ -87,10 +93,12 @@ pub enum HandleMsg {
         owner: HumanAddr,
         contract: HumanAddr,
         amount: Uint128,
-        msg: Option<Binary>,
+        msg: Binary,
     },
     /// Implements CW20 "approval" extension. Destroys tokens forever
     BurnFrom { owner: HumanAddr, amount: Uint128 },
+    /// Extend Interface with the ability to update token metadata.
+    UpdateMetadata { name: String, symbol: String },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -116,5 +124,5 @@ pub enum QueryMsg {
 pub struct WrappedAssetInfoResponse {
     pub asset_chain: u16,      // Asset chain id
     pub asset_address: Binary, // Asset smart contract address in the original chain
-    pub bridge: HumanAddr,     // Bridge address, authorized to mint and burn wrapped tokens
+    pub bridge: Addr,          // Bridge address, authorized to mint and burn wrapped tokens
 }

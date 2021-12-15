@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mr-tron/base58"
+
 	node_common "github.com/SuSy-One/susy-v2/node/pkg/common"
 	"github.com/SuSy-One/susy-v2/node/pkg/db"
-	"github.com/SuSy-One/susy-v2/node/pkg/reporter"
+	// "github.com/SuSy-One/susy-v2/node/pkg/reporter"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -56,7 +58,11 @@ func (p *Processor) handleObservation(ctx context.Context, m *gossipv1.SignedObs
 	p.logger.Info("received observation",
 		zap.String("digest", hash),
 		zap.String("signature", hex.EncodeToString(m.Signature)),
-		zap.String("addr", hex.EncodeToString(m.Addr)))
+		zap.String("addr", hex.EncodeToString(m.Addr)),
+		zap.String("txhash", hex.EncodeToString(m.TxHash)),
+		zap.String("txhash_b58", base58.Encode(m.TxHash)),
+		zap.String("message_id", m.MessageId),
+	)
 
 	observationsReceivedTotal.Inc()
 
@@ -125,7 +131,7 @@ func (p *Processor) handleObservation(ctx context.Context, m *gossipv1.SignedObs
 	// who have the outdated guardian set, we'll just wait for the message to be retransmitted eventually.
 	_, ok := gs.KeyIndex(their_addr)
 	if !ok {
-		p.logger.Warn("received observation by unknown guardian - is our guardian set outdated?",
+		p.logger.Debug("received observation by unknown guardian - is our guardian set outdated?",
 			zap.String("digest", hash),
 			zap.String("their_addr", their_addr.Hex()),
 			zap.Uint32("index", gs.Index),
@@ -201,19 +207,6 @@ func (p *Processor) handleObservation(ctx context.Context, m *gossipv1.SignedObs
 			ConsistencyLevel: v.ConsistencyLevel,
 		}
 
-		// report the individual signature
-		signatureReport := &reporter.VerifiedPeerSignature{
-			GuardianAddress: their_addr,
-			Signature:       m.Signature,
-			EmitterChain:    v.EmitterChain,
-			EmitterAddress:  v.EmitterAddress,
-			Sequence:        v.Sequence,
-		}
-		p.attestationEvents.ReportVerifiedPeerSignature(signatureReport)
-
-		// report the current VAAState
-		p.attestationEvents.ReportVAAStateUpdate(signed)
-
 		// 2/3+ majority required for VAA to be valid - wait until we have quorum to submit VAA.
 		quorum := CalculateQuorum(len(gs.Keys))
 
@@ -224,6 +217,7 @@ func (p *Processor) handleObservation(ctx context.Context, m *gossipv1.SignedObs
 			zap.Bools("aggregation", agg),
 			zap.Int("required_sigs", quorum),
 			zap.Int("have_sigs", len(sigs)),
+			zap.Bool("quorum", len(sigs) >= quorum),
 		)
 
 		if len(sigs) >= quorum && !p.state.vaaSignatures[hash].submitted {
@@ -335,4 +329,5 @@ func (p *Processor) handleInboundSignedVAAWithQuorum(ctx context.Context, m *gos
 		p.logger.Error("failed to store signed VAA", zap.Error(err))
 		return
 	}
+	p.attestationEvents.ReportVAAQuorum(v)
 }

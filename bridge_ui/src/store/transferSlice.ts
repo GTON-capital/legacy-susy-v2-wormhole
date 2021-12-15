@@ -5,6 +5,7 @@ import {
 } from "@certusone/wormhole-sdk";
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { StateSafeWormholeWrappedInfo } from "../hooks/useCheckIfWormholeWrapped";
+import { ForeignAssetInfo } from "../hooks/useFetchForeignAsset";
 import {
   DataWrapper,
   errorDataWrapper,
@@ -47,7 +48,7 @@ export interface TransferState {
   amount: string;
   targetChain: ChainId;
   targetAddressHex: string | undefined;
-  targetAsset: string | null | undefined;
+  targetAsset: DataWrapper<ForeignAssetInfo>;
   targetParsedTokenAccount: ParsedTokenAccount | undefined;
   transferTx: Transaction | undefined;
   signedVAAHex: string | undefined;
@@ -55,6 +56,7 @@ export interface TransferState {
   isRedeeming: boolean;
   redeemTx: Transaction | undefined;
   isApproving: boolean;
+  isRecovery: boolean;
 }
 
 const initialState: TransferState = {
@@ -69,7 +71,7 @@ const initialState: TransferState = {
   amount: "",
   targetChain: CHAIN_ID_ETH,
   targetAddressHex: undefined,
-  targetAsset: undefined,
+  targetAsset: getEmptyDataWrapper(),
   targetParsedTokenAccount: undefined,
   transferTx: undefined,
   signedVAAHex: undefined,
@@ -77,6 +79,7 @@ const initialState: TransferState = {
   isRedeeming: false,
   redeemTx: undefined,
   isApproving: false,
+  isRecovery: false,
 };
 
 export const transferSlice = createSlice({
@@ -97,27 +100,24 @@ export const transferSlice = createSlice({
       state.sourceChain = action.payload;
       state.sourceParsedTokenAccount = undefined;
       state.sourceParsedTokenAccounts = getEmptyDataWrapper();
+      // clear targetAsset so that components that fire before useFetchTargetAsset don't get stale data
+      state.targetAsset = getEmptyDataWrapper();
+      state.targetParsedTokenAccount = undefined;
+      state.targetAddressHex = undefined;
+      state.isSourceAssetWormholeWrapped = undefined;
+      state.originChain = undefined;
+      state.originAsset = undefined;
       if (state.targetChain === action.payload) {
         state.targetChain = prevSourceChain;
-        state.targetAddressHex = undefined;
-        // clear targetAsset so that components that fire before useFetchTargetAsset don't get stale data
-        state.targetAsset = undefined;
-        state.targetParsedTokenAccount = undefined;
       }
     },
     setSourceWormholeWrappedInfo: (
       state,
-      action: PayloadAction<StateSafeWormholeWrappedInfo | undefined>
+      action: PayloadAction<StateSafeWormholeWrappedInfo>
     ) => {
-      if (action.payload) {
-        state.isSourceAssetWormholeWrapped = action.payload.isWrapped;
-        state.originChain = action.payload.chainId;
-        state.originAsset = action.payload.assetAddress;
-      } else {
-        state.isSourceAssetWormholeWrapped = undefined;
-        state.originChain = undefined;
-        state.originAsset = undefined;
-      }
+      state.isSourceAssetWormholeWrapped = action.payload.isWrapped;
+      state.originChain = action.payload.chainId;
+      state.originAsset = action.payload.assetAddress;
     },
     setSourceWalletAddress: (
       state,
@@ -130,6 +130,13 @@ export const transferSlice = createSlice({
       action: PayloadAction<ParsedTokenAccount | undefined>
     ) => {
       state.sourceParsedTokenAccount = action.payload;
+      // clear targetAsset so that components that fire before useFetchTargetAsset don't get stale data
+      state.targetAsset = getEmptyDataWrapper();
+      state.targetParsedTokenAccount = undefined;
+      state.targetAddressHex = undefined;
+      state.isSourceAssetWormholeWrapped = undefined;
+      state.originChain = undefined;
+      state.originAsset = undefined;
     },
     setSourceParsedTokenAccounts: (
       state,
@@ -164,12 +171,15 @@ export const transferSlice = createSlice({
       state.targetChain = action.payload;
       state.targetAddressHex = undefined;
       // clear targetAsset so that components that fire before useFetchTargetAsset don't get stale data
-      state.targetAsset = undefined;
+      state.targetAsset = getEmptyDataWrapper();
       state.targetParsedTokenAccount = undefined;
       if (state.sourceChain === action.payload) {
         state.sourceChain = prevTargetChain;
         state.activeStep = 0;
         state.sourceParsedTokenAccount = undefined;
+        state.isSourceAssetWormholeWrapped = undefined;
+        state.originChain = undefined;
+        state.originAsset = undefined;
         state.sourceParsedTokenAccounts = getEmptyDataWrapper();
       }
     },
@@ -178,9 +188,10 @@ export const transferSlice = createSlice({
     },
     setTargetAsset: (
       state,
-      action: PayloadAction<string | null | undefined>
+      action: PayloadAction<DataWrapper<ForeignAssetInfo>>
     ) => {
       state.targetAsset = action.payload;
+      state.targetParsedTokenAccount = undefined;
     },
     setTargetParsedTokenAccount: (
       state,
@@ -214,6 +225,36 @@ export const transferSlice = createSlice({
       sourceChain: state.sourceChain,
       targetChain: state.targetChain,
     }),
+    setRecoveryVaa: (
+      state,
+      action: PayloadAction<{
+        vaa: any;
+        parsedPayload: {
+          targetChain: ChainId;
+          targetAddress: string;
+          originChain: ChainId;
+          originAddress: string;
+        };
+      }>
+    ) => {
+      const prevTargetChain = state.targetChain;
+      state.signedVAAHex = action.payload.vaa;
+      state.targetChain = action.payload.parsedPayload.targetChain;
+      if (state.sourceChain === action.payload.parsedPayload.targetChain) {
+        state.sourceChain = prevTargetChain;
+      }
+      state.sourceParsedTokenAccount = undefined;
+      state.sourceParsedTokenAccounts = getEmptyDataWrapper();
+      // clear targetAsset so that components that fire before useFetchTargetAsset don't get stale data
+      state.targetAsset = getEmptyDataWrapper();
+      state.targetParsedTokenAccount = undefined;
+      state.isSourceAssetWormholeWrapped = undefined;
+      state.targetAddressHex = action.payload.parsedPayload.targetAddress;
+      state.originChain = action.payload.parsedPayload.originChain;
+      state.originAsset = action.payload.parsedPayload.originAddress;
+      state.activeStep = 3;
+      state.isRecovery = true;
+    },
   },
 });
 
@@ -241,6 +282,7 @@ export const {
   setRedeemTx,
   setIsApproving,
   reset,
+  setRecoveryVaa,
 } = transferSlice.actions;
 
 export default transferSlice.reducer;

@@ -1,14 +1,18 @@
 //import Autocomplete from '@material-ui/lab/Autocomplete';
 import {
-  CHAIN_ID_ETH,
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
+  isEVMChain,
 } from "@certusone/wormhole-sdk";
 import { TextField, Typography } from "@material-ui/core";
 import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import useGetSourceParsedTokens from "../../hooks/useGetSourceParsedTokenAccounts";
 import useIsWalletReady from "../../hooks/useIsWalletReady";
+import {
+  setSourceParsedTokenAccount as setNFTSourceParsedTokenAccount,
+  setSourceWalletAddress as setNFTSourceWalletAddress,
+} from "../../store/nftSlice";
 import {
   selectNFTSourceChain,
   selectNFTSourceParsedTokenAccount,
@@ -20,14 +24,10 @@ import {
   setSourceParsedTokenAccount as setTransferSourceParsedTokenAccount,
   setSourceWalletAddress as setTransferSourceWalletAddress,
 } from "../../store/transferSlice";
-import {
-  setSourceParsedTokenAccount as setNFTSourceParsedTokenAccount,
-  setSourceWalletAddress as setNFTSourceWalletAddress,
-} from "../../store/nftSlice";
-import EthereumSourceTokenSelector from "./EthereumSourceTokenSelector";
-import SolanaSourceTokenSelector from "./SolanaSourceTokenSelector";
-import TerraSourceTokenSelector from "./TerraSourceTokenSelector";
+import EvmTokenPicker from "./EvmTokenPicker";
 import RefreshButtonWrapper from "./RefreshButtonWrapper";
+import SolanaTokenPicker from "./SolanaTokenPicker";
+import TerraTokenPicker from "./TerraTokenPicker";
 
 type TokenSelectorProps = {
   disabled: boolean;
@@ -78,7 +78,7 @@ export const TokenSelector = (props: TokenSelectorProps) => {
 
   //This is only for errors so bad that we shouldn't even mount the component
   const fatalError =
-    lookupChain !== CHAIN_ID_ETH &&
+    isEVMChain(lookupChain) &&
     lookupChain !== CHAIN_ID_TERRA &&
     maps?.tokenAccounts?.error; //Terra & ETH can proceed because it has advanced mode
 
@@ -87,34 +87,36 @@ export const TokenSelector = (props: TokenSelectorProps) => {
       <Typography>{fatalError}</Typography>
     </RefreshButtonWrapper>
   ) : lookupChain === CHAIN_ID_SOLANA ? (
-    <SolanaSourceTokenSelector
+    <SolanaTokenPicker
       value={sourceParsedTokenAccount || null}
       onChange={handleOnChange}
       disabled={disabled}
-      accounts={maps?.tokenAccounts?.data || []}
+      accounts={maps?.tokenAccounts}
       mintAccounts={maps?.mintAccounts}
       resetAccounts={maps?.resetAccounts}
       nft={nft}
     />
-  ) : lookupChain === CHAIN_ID_ETH ? (
-    <EthereumSourceTokenSelector
+  ) : isEVMChain(lookupChain) ? (
+    <EvmTokenPicker
       value={sourceParsedTokenAccount || null}
       disabled={disabled}
       onChange={handleOnChange}
-      covalent={maps?.covalent || undefined}
       tokenAccounts={maps?.tokenAccounts}
       resetAccounts={maps?.resetAccounts}
+      chainId={lookupChain}
       nft={nft}
     />
   ) : lookupChain === CHAIN_ID_TERRA ? (
-    <TerraSourceTokenSelector
+    <TerraTokenPicker
       value={sourceParsedTokenAccount || null}
       disabled={disabled}
       onChange={handleOnChange}
       resetAccounts={maps?.resetAccounts}
+      tokenAccounts={maps?.tokenAccounts}
     />
   ) : (
     <TextField
+      variant="outlined"
       placeholder="Asset"
       fullWidth
       value={"Not Implemented"}

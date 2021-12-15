@@ -1,5 +1,10 @@
-import { CHAIN_ID_ETH, CHAIN_ID_SOLANA } from "@certusone/wormhole-sdk";
-import { makeStyles, MenuItem, TextField, Typography } from "@material-ui/core";
+import {
+  CHAIN_ID_SOLANA,
+  hexToNativeString,
+  hexToUint8Array,
+  isEVMChain,
+} from "@certusone/wormhole-sdk";
+import { makeStyles, TextField, Typography } from "@material-ui/core";
 import { Alert } from "@material-ui/lab";
 import { PublicKey } from "@solana/web3.js";
 import { BigNumber, ethers } from "ethers";
@@ -7,7 +12,7 @@ import { useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import useIsWalletReady from "../../hooks/useIsWalletReady";
 import useSyncTargetAddress from "../../hooks/useSyncTargetAddress";
-import { EthGasEstimateSummary } from "../../hooks/useTransactionFees";
+import { GasEstimateSummary } from "../../hooks/useTransactionFees";
 import { incrementStep, setTargetChain } from "../../store/nftSlice";
 import {
   selectNFTIsTargetComplete,
@@ -18,13 +23,12 @@ import {
   selectNFTSourceChain,
   selectNFTTargetAddressHex,
   selectNFTTargetAsset,
-  selectNFTTargetBalanceString,
   selectNFTTargetChain,
   selectNFTTargetError,
 } from "../../store/selectors";
-import { hexToNativeString, hexToUint8Array } from "../../utils/array";
-import { CHAINS, CHAINS_BY_ID } from "../../utils/consts";
+import { CHAINS_BY_ID, CHAINS_WITH_NFT_SUPPORT } from "../../utils/consts";
 import ButtonWithLoader from "../ButtonWithLoader";
+import ChainSelect from "../ChainSelect";
 import KeyAndBalance from "../KeyAndBalance";
 import LowBalanceWarning from "../LowBalanceWarning";
 import StepDescription from "../StepDescription";
@@ -44,7 +48,7 @@ function Target() {
   const dispatch = useDispatch();
   const sourceChain = useSelector(selectNFTSourceChain);
   const chains = useMemo(
-    () => CHAINS.filter((c) => c.id !== sourceChain),
+    () => CHAINS_WITH_NFT_SUPPORT.filter((c) => c.id !== sourceChain),
     [sourceChain]
   );
   const targetChain = useSelector(selectNFTTargetChain);
@@ -66,7 +70,6 @@ function Target() {
   }
   const readableTargetAddress =
     hexToNativeString(targetAddressHex, targetChain) || "";
-  const uiAmountString = useSelector(selectNFTTargetBalanceString);
   const error = useSelector(selectNFTTargetError);
   const isTargetComplete = useSelector(selectNFTIsTargetComplete);
   const shouldLockFields = useSelector(selectNFTShouldLockFields);
@@ -84,25 +87,19 @@ function Target() {
   return (
     <>
       <StepDescription>Select a recipient chain and address.</StepDescription>
-      <TextField
+      <ChainSelect
         select
         fullWidth
+        variant="outlined"
         value={targetChain}
         onChange={handleTargetChange}
-        disabled={true}
-      >
-        {chains
-          .filter(({ id }) => id === CHAIN_ID_ETH || id === CHAIN_ID_SOLANA)
-          .map(({ id, name }) => (
-            <MenuItem key={id} value={id}>
-              {name}
-            </MenuItem>
-          ))}
-      </TextField>
-      <KeyAndBalance chainId={targetChain} balance={uiAmountString} />
+        chains={chains}
+      />
+      <KeyAndBalance chainId={targetChain} />
       <TextField
         label="Recipient Address"
         fullWidth
+        variant="outlined"
         className={classes.transferField}
         value={readableTargetAddress}
         disabled={true}
@@ -112,12 +109,14 @@ function Target() {
           <TextField
             label="Token Address"
             fullWidth
+            variant="outlined"
             className={classes.transferField}
             value={targetAsset || ""}
             disabled={true}
           />
-          {targetChain === CHAIN_ID_ETH ? (
+          {isEVMChain(targetChain) ? (
             <TextField
+              variant="outlined"
               label="TokenId"
               fullWidth
               className={classes.transferField}
@@ -127,13 +126,13 @@ function Target() {
           ) : null}
         </>
       ) : null}
-      <Alert severity="info" className={classes.alert}>
+      <Alert severity="info" variant="outlined" className={classes.alert}>
         <Typography>
           You will have to pay transaction fees on{" "}
           {CHAINS_BY_ID[targetChain].name} to redeem your NFT.
         </Typography>
-        {targetChain === CHAIN_ID_ETH && (
-          <EthGasEstimateSummary methodType="nft" />
+        {isEVMChain(targetChain) && (
+          <GasEstimateSummary methodType="nft" chainId={targetChain} />
         )}
       </Alert>
       <LowBalanceWarning chainId={targetChain} />

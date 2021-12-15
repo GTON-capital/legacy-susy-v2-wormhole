@@ -1,9 +1,7 @@
 package reporter
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"os"
 
@@ -29,7 +27,8 @@ type bigTableWriter struct {
 
 // rowKey returns a string with the input vales delimited by colons.
 func makeRowKey(emitterChain vaa.ChainID, emitterAddress vaa.Address, sequence uint64) string {
-	return fmt.Sprintf("%d:%s:%d", emitterChain, emitterAddress, sequence)
+	// left-pad the sequence with zeros to 16 characters, because bigtable keys are stored lexicographically
+	return fmt.Sprintf("%d:%s:%016d", emitterChain, emitterAddress, sequence)
 }
 
 func BigTableWriter(events *AttestationEventReporter, connectionConfig *BigTableConnectionConfig) func(ctx context.Context) error {
@@ -90,52 +89,6 @@ func BigTableWriter(events *AttestationEventReporter, connectionConfig *BigTable
 					err := tbl.Apply(ctx, rowKey, conditionalMutation)
 					if err != nil {
 						logger.Warn("Failed to write message publication to BigTable",
-							zap.String("rowKey", rowKey),
-							zap.String("columnFamily", colFam),
-							zap.Error(err))
-						errC <- err
-					}
-				case msg := <-sub.Channels.VerifiedSignatureC:
-					colFam := "Signatures"
-					mutation := bigtable.NewMutation()
-					ts := bigtable.Now()
-					addrHex := msg.GuardianAddress.Hex()
-
-					mutation.Set(colFam, addrHex, ts, msg.Signature)
-
-					// filter to see if this row already has this signature.
-					filter := bigtable.ChainFilters(
-						bigtable.FamilyFilter(colFam),
-						bigtable.ColumnFilter(addrHex))
-					conditionalMutation := bigtable.NewCondMutation(filter, nil, mutation)
-
-					rowKey := makeRowKey(msg.EmitterChain, msg.EmitterAddress, msg.Sequence)
-					err := tbl.Apply(ctx, rowKey, conditionalMutation)
-					if err != nil {
-						logger.Warn("Failed to write signature to BigTable",
-							zap.String("rowKey", rowKey),
-							zap.String("columnFamily", colFam),
-							zap.Error(err))
-						errC <- err
-					}
-				case msg := <-sub.Channels.VAAStateUpdateC:
-					colFam := "VAAState"
-					mutation := bigtable.NewMutation()
-					ts := bigtable.Now()
-
-					buf := new(bytes.Buffer)
-					vaa.MustWrite(buf, binary.BigEndian, uint8(len(msg.Signatures)))
-					for _, sig := range msg.Signatures {
-						vaa.MustWrite(buf, binary.BigEndian, sig.Index)
-						buf.Write(sig.Signature[:])
-					}
-					mutation.Set(colFam, "Signatures", ts, buf.Bytes())
-					// TODO: conditional mutation that considers number of signatures in the VAA.
-
-					rowKey := makeRowKey(msg.EmitterChain, msg.EmitterAddress, msg.Sequence)
-					err := tbl.Apply(ctx, rowKey, mutation)
-					if err != nil {
-						logger.Warn("Failed to write VAA update to BigTable",
 							zap.String("rowKey", rowKey),
 							zap.String("columnFamily", colFam),
 							zap.Error(err))

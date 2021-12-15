@@ -1,8 +1,9 @@
 import {
-  CHAIN_ID_ETH,
+  canonicalAddress,
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
-  canonicalAddress,
+  isEVMChain,
+  uint8ArrayToHex,
 } from "@certusone/wormhole-sdk";
 import { arrayify, zeroPad } from "@ethersproject/bytes";
 import {
@@ -16,6 +17,7 @@ import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useEthereumProvider } from "../contexts/EthereumProviderContext";
 import { useSolanaWallet } from "../contexts/SolanaWalletContext";
+import { setTargetAddressHex as setNFTTargetAddressHex } from "../store/nftSlice";
 import {
   selectNFTTargetAsset,
   selectNFTTargetChain,
@@ -23,9 +25,7 @@ import {
   selectTransferTargetChain,
   selectTransferTargetParsedTokenAccount,
 } from "../store/selectors";
-import { setTargetAddressHex as setNFTTargetAddressHex } from "../store/nftSlice";
 import { setTargetAddressHex as setTransferTargetAddressHex } from "../store/transferSlice";
-import { uint8ArrayToHex } from "../utils/array";
 
 function useSyncTargetAddress(shouldFire: boolean, nft?: boolean) {
   const dispatch = useDispatch();
@@ -49,7 +49,7 @@ function useSyncTargetAddress(shouldFire: boolean, nft?: boolean) {
   useEffect(() => {
     if (shouldFire) {
       let cancelled = false;
-      if (targetChain === CHAIN_ID_ETH && signerAddress) {
+      if (isEVMChain(targetChain) && signerAddress) {
         dispatch(
           setTargetAddressHex(
             uint8ArrayToHex(zeroPad(arrayify(signerAddress), 32))

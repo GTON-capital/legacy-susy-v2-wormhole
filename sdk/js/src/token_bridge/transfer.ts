@@ -1,13 +1,21 @@
-import { Token, TOKEN_PROGRAM_ID, u64 } from "@solana/spl-token";
-import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
+import { AccountLayout, Token, TOKEN_PROGRAM_ID, u64 } from "@solana/spl-token";
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+} from "@solana/web3.js";
 import { MsgExecuteContract } from "@terra-money/terra.js";
-import { ethers } from "ethers";
+import { BigNumber, ethers } from "ethers";
+import { isNativeDenom } from "..";
 import {
   Bridge__factory,
   TokenImplementation__factory,
 } from "../ethers-contracts";
 import { getBridgeFeeIx, ixFromRust } from "../solana";
-import { ChainId, CHAIN_ID_SOLANA, createNonce } from "../utils";
+import { importTokenWasm } from "../solana/wasm";
+import { ChainId, CHAIN_ID_SOLANA, createNonce, WSOL_ADDRESS } from "../utils";
 
 export async function getAllowanceEth(
   tokenBridgeAddress: string,
@@ -84,37 +92,173 @@ export async function transferFromTerra(
   recipientAddress: Uint8Array
 ) {
   const nonce = Math.round(Math.random() * 100000);
-  return [
-    new MsgExecuteContract(
-      walletAddress,
-      tokenAddress,
-      {
-        increase_allowance: {
-          spender: tokenBridgeAddress,
-          amount: amount,
-          expires: {
-            never: {},
+  const isNativeAsset = isNativeDenom(tokenAddress);
+  return isNativeAsset
+    ? [
+        new MsgExecuteContract(
+          walletAddress,
+          tokenBridgeAddress,
+          {
+            deposit_tokens: {},
           },
-        },
-      },
-      { uluna: 10000 }
-    ),
-    new MsgExecuteContract(
-      walletAddress,
+          { [tokenAddress]: amount }
+        ),
+        new MsgExecuteContract(
+          walletAddress,
+          tokenBridgeAddress,
+          {
+            initiate_transfer: {
+              asset: {
+                amount,
+                info: {
+                  native_token: {
+                    denom: tokenAddress,
+                  },
+                },
+              },
+              recipient_chain: recipientChain,
+              recipient: Buffer.from(recipientAddress).toString("base64"),
+              fee: "0",
+              nonce: nonce,
+            },
+          },
+          {}
+        ),
+      ]
+    : [
+        new MsgExecuteContract(
+          walletAddress,
+          tokenAddress,
+          {
+            increase_allowance: {
+              spender: tokenBridgeAddress,
+              amount: amount,
+              expires: {
+                never: {},
+              },
+            },
+          },
+          {}
+        ),
+        new MsgExecuteContract(
+          walletAddress,
+          tokenBridgeAddress,
+          {
+            initiate_transfer: {
+              asset: {
+                amount: amount,
+                info: {
+                  token: {
+                    contract_addr: tokenAddress,
+                  },
+                },
+              },
+              recipient_chain: recipientChain,
+              recipient: Buffer.from(recipientAddress).toString("base64"),
+              fee: "0",
+              nonce: nonce,
+            },
+          },
+          {}
+        ),
+      ];
+}
+
+export async function transferNativeSol(
+  connection: Connection,
+  bridgeAddress: string,
+  tokenBridgeAddress: string,
+  payerAddress: string,
+  amount: BigInt,
+  targetAddress: Uint8Array,
+  targetChain: ChainId
+) {
+  //https://github.com/solana-labs/solana-program-library/blob/master/token/js/client/token.js
+  const rentBalance = await Token.getMinBalanceRentForExemptAccount(connection);
+  const mintPublicKey = new PublicKey(WSOL_ADDRESS);
+  const payerPublicKey = new PublicKey(payerAddress);
+  const ancillaryKeypair = Keypair.generate();
+
+  //This will create a temporary account where the wSOL will be created.
+  const createAncillaryAccountIx = SystemProgram.createAccount({
+    fromPubkey: payerPublicKey,
+    newAccountPubkey: ancillaryKeypair.publicKey,
+    lamports: rentBalance, //spl token accounts need rent exemption
+    space: AccountLayout.span,
+    programId: TOKEN_PROGRAM_ID,
+  });
+
+  //Send in the amount of SOL which we want converted to wSOL
+  const initialBalanceTransferIx = SystemProgram.transfer({
+    fromPubkey: payerPublicKey,
+    lamports: Number(amount),
+    toPubkey: ancillaryKeypair.publicKey,
+  });
+  //Initialize the account as a WSOL account, with the original payerAddress as owner
+  const initAccountIx = await Token.createInitAccountInstruction(
+    TOKEN_PROGRAM_ID,
+    mintPublicKey,
+    ancillaryKeypair.publicKey,
+    payerPublicKey
+  );
+
+  //Normal approve & transfer instructions, except that the wSOL is sent from the ancillary account.
+  const { transfer_native_ix, approval_authority_address } =
+    await importTokenWasm();
+  const nonce = createNonce().readUInt32LE(0);
+  const fee = BigInt(0); // for now, this won't do anything, we may add later
+  const transferIx = await getBridgeFeeIx(
+    connection,
+    bridgeAddress,
+    payerAddress
+  );
+  const approvalIx = Token.createApproveInstruction(
+    TOKEN_PROGRAM_ID,
+    ancillaryKeypair.publicKey,
+    new PublicKey(approval_authority_address(tokenBridgeAddress)),
+    payerPublicKey, //owner
+    [],
+    new u64(amount.toString(16), 16)
+  );
+  let messageKey = Keypair.generate();
+
+  const ix = ixFromRust(
+    transfer_native_ix(
       tokenBridgeAddress,
-      {
-        initiate_transfer: {
-          asset: tokenAddress,
-          amount: amount,
-          recipient_chain: recipientChain,
-          recipient: Buffer.from(recipientAddress).toString("base64"),
-          fee: "0",
-          nonce: nonce,
-        },
-      },
-      { uluna: 10000 }
-    ),
-  ];
+      bridgeAddress,
+      payerAddress,
+      messageKey.publicKey.toString(),
+      ancillaryKeypair.publicKey.toString(),
+      WSOL_ADDRESS,
+      nonce,
+      amount,
+      fee,
+      targetAddress,
+      targetChain
+    )
+  );
+
+  //Close the ancillary account for cleanup. Payer address receives any remaining funds
+  const closeAccountIx = Token.createCloseAccountInstruction(
+    TOKEN_PROGRAM_ID,
+    ancillaryKeypair.publicKey, //account to close
+    payerPublicKey, //Remaining funds destination
+    payerPublicKey, //authority
+    []
+  );
+
+  const { blockhash } = await connection.getRecentBlockhash();
+  const transaction = new Transaction();
+  transaction.recentBlockhash = blockhash;
+  transaction.feePayer = new PublicKey(payerAddress);
+  transaction.add(createAncillaryAccountIx);
+  transaction.add(initialBalanceTransferIx);
+  transaction.add(initAccountIx);
+  transaction.add(transferIx, approvalIx, ix);
+  transaction.add(closeAccountIx);
+  transaction.partialSign(messageKey);
+  transaction.partialSign(ancillaryKeypair);
+  return transaction;
 }
 
 export async function transferFromSolana(
@@ -128,7 +272,8 @@ export async function transferFromSolana(
   targetAddress: Uint8Array,
   targetChain: ChainId,
   originAddress?: Uint8Array,
-  originChain?: ChainId
+  originChain?: ChainId,
+  fromOwnerAddress?: string
 ) {
   const nonce = createNonce().readUInt32LE(0);
   const fee = BigInt(0); // for now, this won't do anything, we may add later
@@ -141,12 +286,12 @@ export async function transferFromSolana(
     transfer_native_ix,
     transfer_wrapped_ix,
     approval_authority_address,
-  } = await import("../solana/token/token_bridge");
+  } = await importTokenWasm();
   const approvalIx = Token.createApproveInstruction(
     TOKEN_PROGRAM_ID,
     new PublicKey(fromAddress),
     new PublicKey(approval_authority_address(tokenBridgeAddress)),
-    new PublicKey(payerAddress),
+    new PublicKey(fromOwnerAddress || payerAddress),
     [],
     new u64(amount.toString(16), 16)
   );
@@ -177,7 +322,7 @@ export async function transferFromSolana(
           payerAddress,
           messageKey.publicKey.toString(),
           fromAddress,
-          payerAddress,
+          fromOwnerAddress || payerAddress,
           originChain as number, // checked by isSolanaNative
           originAddress as Uint8Array, // checked by throw
           nonce,

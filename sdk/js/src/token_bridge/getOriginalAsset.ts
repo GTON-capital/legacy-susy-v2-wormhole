@@ -1,16 +1,12 @@
 import { Connection, PublicKey } from "@solana/web3.js";
+import { LCDClient } from "@terra-money/terra.js";
 import { ethers } from "ethers";
 import { arrayify, zeroPad } from "ethers/lib/utils";
 import { TokenImplementation__factory } from "../ethers-contracts";
-import {
-  ChainId,
-  CHAIN_ID_ETH,
-  CHAIN_ID_SOLANA,
-  CHAIN_ID_TERRA,
-} from "../utils";
+import { importTokenWasm } from "../solana/wasm";
+import { buildNativeId, canonicalAddress, isNativeDenom } from "../terra";
+import { ChainId, CHAIN_ID_SOLANA, CHAIN_ID_TERRA } from "../utils";
 import { getIsWrappedAssetEth } from "./getIsWrappedAsset";
-import { LCDClient } from "@terra-money/terra.js";
-import { canonicalAddress } from "../terra";
 
 export interface WormholeWrappedInfo {
   isWrapped: boolean;
@@ -28,7 +24,8 @@ export interface WormholeWrappedInfo {
 export async function getOriginalAssetEth(
   tokenBridgeAddress: string,
   provider: ethers.providers.Web3Provider,
-  wrappedAddress: string
+  wrappedAddress: string,
+  lookupChainId: ChainId
 ): Promise<WormholeWrappedInfo> {
   const isWrapped = await getIsWrappedAssetEth(
     tokenBridgeAddress,
@@ -50,7 +47,7 @@ export async function getOriginalAssetEth(
   }
   return {
     isWrapped: false,
-    chainId: CHAIN_ID_ETH,
+    chainId: lookupChainId,
     assetAddress: zeroPad(arrayify(wrappedAddress), 32),
   };
 }
@@ -59,6 +56,13 @@ export async function getOriginalAssetTerra(
   client: LCDClient,
   wrappedAddress: string
 ): Promise<WormholeWrappedInfo> {
+  if (isNativeDenom(wrappedAddress)) {
+    return {
+      isWrapped: false,
+      chainId: CHAIN_ID_TERRA,
+      assetAddress: buildNativeId(wrappedAddress),
+    };
+  }
   try {
     const result: {
       asset_address: string;
@@ -98,9 +102,8 @@ export async function getOriginalAssetSol(
 ): Promise<WormholeWrappedInfo> {
   if (mintAddress) {
     // TODO: share some of this with getIsWrappedAssetSol, like a getWrappedMetaAccountAddress or something
-    const { parse_wrapped_meta, wrapped_meta_address } = await import(
-      "../solana/token/token_bridge"
-    );
+    const { parse_wrapped_meta, wrapped_meta_address } =
+      await importTokenWasm();
     const wrappedMetaAddress = wrapped_meta_address(
       tokenBridgeAddress,
       new PublicKey(mintAddress).toBytes()

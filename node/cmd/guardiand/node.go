@@ -3,20 +3,28 @@ package guardiand
 import (
 	"context"
 	"fmt"
+	"github.com/SuSy-One/susy-v2/node/pkg/notify/discord"
+	"github.com/gagliardetto/solana-go/rpc"
+
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"path"
-	"syscall"
-
-	"github.com/SuSy-One/susy-v2/node/pkg/db"
-	"github.com/gagliardetto/solana-go/rpc"
 
 	solana_types "github.com/gagliardetto/solana-go"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/SuSy-One/susy-v2/node/pkg/p2p"
+	"github.com/SuSy-One/susy-v2/node/pkg/processor"
+	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
+	"github.com/SuSy-One/susy-v2/node/pkg/db"
+	"github.com/SuSy-One/susy-v2/node/pkg/readiness"
+	"github.com/SuSy-One/susy-v2/node/pkg/reporter"
+	solana "github.com/SuSy-One/susy-v2/node/pkg/solana"
+	"github.com/SuSy-One/susy-v2/node/pkg/supervisor"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 	eth_common "github.com/ethereum/go-ethereum/common"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/libp2p/go-libp2p-core/crypto"
@@ -24,19 +32,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"golang.org/x/sys/unix"
 
 	"github.com/SuSy-One/susy-v2/node/pkg/common"
 	"github.com/SuSy-One/susy-v2/node/pkg/devnet"
 	"github.com/SuSy-One/susy-v2/node/pkg/ethereum"
-	"github.com/SuSy-One/susy-v2/node/pkg/p2p"
-	"github.com/SuSy-One/susy-v2/node/pkg/processor"
-	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
-	"github.com/SuSy-One/susy-v2/node/pkg/readiness"
-	"github.com/SuSy-One/susy-v2/node/pkg/reporter"
-	solana "github.com/SuSy-One/susy-v2/node/pkg/solana"
-	"github.com/SuSy-One/susy-v2/node/pkg/supervisor"
-	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
 
 	ipfslog "github.com/ipfs/go-log/v2"
 )
@@ -63,9 +62,14 @@ var (
 	bscRPC      *string
 	bscContract *string
 
+	polygonRPC      *string
+	polygonContract *string
+
+	ethRopstenRPC      *string
+	ethRopstenContract *string
+
 	terraWS       *string
 	terraLCD      *string
-	terraChainID  *string
 	terraContract *string
 
 	solanaWsRPC *string
@@ -74,6 +78,7 @@ var (
 	logLevel *string
 
 	unsafeDevMode   *bool
+	testnetMode     *bool
 	devNumGuardians *uint
 	nodeName        *string
 
@@ -84,6 +89,9 @@ var (
 	tlsProdEnv  *bool
 
 	disableHeartbeatVerify *bool
+
+	discordToken   *string
+	discordChannel *string
 
 	bigTablePersistenceEnabled *bool
 	bigTableGCPProject         *string
@@ -114,9 +122,14 @@ func init() {
 	bscRPC = NodeCmd.Flags().String("bscRPC", "", "Binance Smart Chain RPC URL")
 	bscContract = NodeCmd.Flags().String("bscContract", "", "Binance Smart Chain contract address")
 
+	polygonRPC = NodeCmd.Flags().String("polygonRPC", "", "Polygon RPC URL")
+	polygonContract = NodeCmd.Flags().String("polygonContract", "", "Polygon contract address")
+
+	ethRopstenRPC = NodeCmd.Flags().String("ethRopstenRPC", "", "Ethereum Ropsten RPC URL")
+	ethRopstenContract = NodeCmd.Flags().String("ethRopstenContract", "", "Ethereum Ropsten contract address")
+
 	terraWS = NodeCmd.Flags().String("terraWS", "", "Path to terrad root for websocket connection")
 	terraLCD = NodeCmd.Flags().String("terraLCD", "", "Path to LCD service root for http calls")
-	terraChainID = NodeCmd.Flags().String("terraChainID", "", "Terra chain ID, used in LCD client initialization")
 	terraContract = NodeCmd.Flags().String("terraContract", "", "Wormhole contract address on Terra blockchain")
 
 	solanaWsRPC = NodeCmd.Flags().String("solanaWS", "", "Solana Websocket URL (required")
@@ -125,6 +138,7 @@ func init() {
 	logLevel = NodeCmd.Flags().String("logLevel", "info", "Logging level (debug, info, warn, error, dpanic, panic, fatal)")
 
 	unsafeDevMode = NodeCmd.Flags().Bool("unsafeDevMode", false, "Launch node in unsafe, deterministic devnet mode")
+	testnetMode = NodeCmd.Flags().Bool("testnetMode", false, "Launch node in testnet mode (enables testnet-only features like Ropsten)")
 	devNumGuardians = NodeCmd.Flags().Uint("devNumGuardians", 5, "Number of devnet guardians to include in guardian set")
 	nodeName = NodeCmd.Flags().String("nodeName", "", "Node name to announce in gossip heartbeats")
 
@@ -137,6 +151,9 @@ func init() {
 
 	disableHeartbeatVerify = NodeCmd.Flags().Bool("disableHeartbeatVerify", false,
 		"Disable heartbeat signature verification (useful during network startup)")
+
+	discordToken = NodeCmd.Flags().String("discordToken", "", "Discord bot token (optional)")
+	discordChannel = NodeCmd.Flags().String("discordChannel", "", "Discord channel name (optional)")
 
 	bigTablePersistenceEnabled = NodeCmd.Flags().Bool("bigTablePersistenceEnabled", false, "Turn on forwarding events to BigTable")
 	bigTableGCPProject = NodeCmd.Flags().String("bigTableGCPProject", "", "Google Cloud project ID for storing events")
@@ -176,23 +193,6 @@ func rootLoggerName() string {
 	} else {
 		return "wormhole"
 	}
-}
-
-// lockMemory locks current and future pages in memory to protect secret keys from being swapped out to disk.
-// It's possible (and strongly recommended) to deploy Wormhole such that keys are only ever
-// stored in memory and never touch the disk. This is a privileged operation and requires CAP_IPC_LOCK.
-func lockMemory() {
-	err := unix.Mlockall(syscall.MCL_CURRENT | syscall.MCL_FUTURE)
-	if err != nil {
-		fmt.Printf("Failed to lock memory: %v (CAP_IPC_LOCK missing?)\n", err)
-		os.Exit(1)
-	}
-}
-
-// setRestrictiveUmask masks the group and world bits. This ensures that key material
-// and sockets we create aren't accidentally group- or world-readable.
-func setRestrictiveUmask() {
-	syscall.Umask(0077) // cannot fail
 }
 
 // NodeCmd represents the node command
@@ -273,6 +273,7 @@ func runNode(cmd *cobra.Command, args []string) {
 		// Deterministic ganache ETH devnet address.
 		*ethContract = devnet.GanacheWormholeContractAddress.Hex()
 		*bscContract = devnet.GanacheWormholeContractAddress.Hex()
+		*polygonContract = devnet.GanacheWormholeContractAddress.Hex()
 
 		// Use the hostname as nodeName. For production, we don't want to do this to
 		// prevent accidentally leaking sensitive hostnames.
@@ -415,6 +416,14 @@ func runNode(cmd *cobra.Command, args []string) {
 	// Guardian set state managed by processor
 	gst := common.NewGuardianSetState()
 
+	var notifier *discord.DiscordNotifier
+	if *discordToken != "" {
+		notifier, err = discord.NewDiscordNotifier(*discordToken, *discordChannel, logger)
+		if err != nil {
+			logger.Error("failed to initialize Discord bot", zap.Error(err))
+		}
+	}
+
 	// Load p2p private key
 	var priv crypto.PrivKey
 	if *unsafeDevMode {
@@ -424,7 +433,7 @@ func runNode(cmd *cobra.Command, args []string) {
 		}
 		priv = devnet.DeterministicP2PPrivKeyByIndex(int64(idx))
 	} else {
-		priv, err = getOrCreateNodeKey(logger, *nodeKeyPath)
+		priv, err = common.GetOrCreateNodeKey(logger, *nodeKeyPath)
 		if err != nil {
 			logger.Fatal("Failed to load node key", zap.Error(err))
 		}
@@ -500,9 +509,9 @@ func runNode(cmd *cobra.Command, args []string) {
 			*devNumGuardians,
 			*ethRPC,
 			*terraLCD,
-			*terraChainID,
 			*terraContract,
 			attestationEvents,
+			notifier,
 		)
 		if err := supervisor.Run(ctx, "processor", p.Run); err != nil {
 			return err

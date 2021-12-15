@@ -1,29 +1,40 @@
 import {
-  CHAIN_ID_ETH,
+  ChainId,
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
   getForeignAssetEth,
   getForeignAssetSolana,
   getForeignAssetTerra,
+  hexToNativeString,
+  hexToUint8Array,
+  isEVMChain,
 } from "@certusone/wormhole-sdk";
 import {
   getForeignAssetEth as getForeignAssetEthNFT,
   getForeignAssetSol as getForeignAssetSolNFT,
-} from "@certusone/wormhole-sdk/lib/nft_bridge";
+} from "@certusone/wormhole-sdk/lib/esm/nft_bridge";
 import { BigNumber } from "@ethersproject/bignumber";
 import { arrayify } from "@ethersproject/bytes";
 import { Connection } from "@solana/web3.js";
 import { LCDClient } from "@terra-money/terra.js";
-import { useEffect } from "react";
+import { ethers } from "ethers";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useEthereumProvider } from "../contexts/EthereumProviderContext";
+import {
+  errorDataWrapper,
+  fetchDataWrapper,
+  receiveDataWrapper,
+} from "../store/helpers";
 import { setTargetAsset as setNFTTargetAsset } from "../store/nftSlice";
 import {
+  selectNFTIsRecovery,
   selectNFTIsSourceAssetWormholeWrapped,
   selectNFTOriginAsset,
   selectNFTOriginChain,
   selectNFTOriginTokenId,
   selectNFTTargetChain,
+  selectTransferIsRecovery,
   selectTransferIsSourceAssetWormholeWrapped,
   selectTransferOriginAsset,
   selectTransferOriginChain,
@@ -32,8 +43,9 @@ import {
 import { setTargetAsset as setTransferTargetAsset } from "../store/transferSlice";
 import { hexToNativeString, hexToUint8Array } from "../utils/array";
 import {
-  ETH_NFT_BRIDGE_ADDRESS,
-  ETH_TOKEN_BRIDGE_ADDRESS,
+  getEvmChainId,
+  getNFTBridgeAddressForChain,
+  getTokenBridgeAddressForChain,
   SOLANA_HOST,
   SOL_NFT_BRIDGE_ADDRESS,
   SOL_TOKEN_BRIDGE_ADDRESS,
@@ -60,47 +72,114 @@ function useFetchTargetAsset(nft?: boolean) {
     nft ? selectNFTTargetChain : selectTransferTargetChain
   );
   const setTargetAsset = nft ? setNFTTargetAsset : setTransferTargetAsset;
-  const { provider } = useEthereumProvider();
+  const { provider, chainId: evmChainId } = useEthereumProvider();
+  const correctEvmNetwork = getEvmChainId(targetChain);
+  const hasCorrectEvmNetwork = evmChainId === correctEvmNetwork;
+  const isRecovery = useSelector(
+    nft ? selectNFTIsRecovery : selectTransferIsRecovery
+  );
+  const [lastSuccessfulArgs, setLastSuccessfulArgs] = useState<{
+    isSourceAssetWormholeWrapped: boolean | undefined;
+    originChain: ChainId | undefined;
+    originAsset: string | undefined;
+    targetChain: ChainId;
+    nft?: boolean;
+    tokenId?: string;
+  } | null>(null);
+  const argsMatchLastSuccess =
+    !!lastSuccessfulArgs &&
+    lastSuccessfulArgs.isSourceAssetWormholeWrapped ===
+      isSourceAssetWormholeWrapped &&
+    lastSuccessfulArgs.originChain === originChain &&
+    lastSuccessfulArgs.originAsset === originAsset &&
+    lastSuccessfulArgs.targetChain === targetChain &&
+    lastSuccessfulArgs.nft === nft &&
+    lastSuccessfulArgs.tokenId === tokenId;
+  const setArgs = useCallback(
+    () =>
+      setLastSuccessfulArgs({
+        isSourceAssetWormholeWrapped,
+        originChain,
+        originAsset,
+        targetChain,
+        nft,
+        tokenId,
+      }),
+    [
+      isSourceAssetWormholeWrapped,
+      originChain,
+      originAsset,
+      targetChain,
+      nft,
+      tokenId,
+    ]
+  );
   useEffect(() => {
-    if (isSourceAssetWormholeWrapped && originChain === targetChain) {
-      dispatch(setTargetAsset(hexToNativeString(originAsset, originChain)));
+    if (isRecovery || argsMatchLastSuccess) {
       return;
     }
-    // TODO: loading state, error state
-    dispatch(setTargetAsset(undefined));
+    setLastSuccessfulArgs(null);
+    if (isSourceAssetWormholeWrapped && originChain === targetChain) {
+      dispatch(
+        setTargetAsset(
+          receiveDataWrapper({
+            doesExist: true,
+            address: hexToNativeString(originAsset, originChain) || null,
+          })
+        )
+      );
+      setArgs();
+      return;
+    }
     let cancelled = false;
     (async () => {
       if (
-        targetChain === CHAIN_ID_ETH &&
+        isEVMChain(targetChain) &&
         provider &&
+        hasCorrectEvmNetwork &&
         originChain &&
         originAsset
       ) {
+        dispatch(setTargetAsset(fetchDataWrapper()));
         try {
           const asset = await (nft
             ? getForeignAssetEthNFT(
-                ETH_NFT_BRIDGE_ADDRESS,
+                getNFTBridgeAddressForChain(targetChain),
                 provider,
                 originChain,
                 hexToUint8Array(originAsset)
               )
             : getForeignAssetEth(
-                ETH_TOKEN_BRIDGE_ADDRESS,
+                getTokenBridgeAddressForChain(targetChain),
                 provider,
                 originChain,
                 hexToUint8Array(originAsset)
               ));
           if (!cancelled) {
-            dispatch(setTargetAsset(asset));
+            dispatch(
+              setTargetAsset(
+                receiveDataWrapper({
+                  doesExist: asset !== ethers.constants.AddressZero,
+                  address: asset,
+                })
+              )
+            );
+            setArgs();
           }
         } catch (e) {
           if (!cancelled) {
-            // TODO: warning for this
-            dispatch(setTargetAsset(null));
+            dispatch(
+              setTargetAsset(
+                errorDataWrapper(
+                  "Unable to determine existence of wrapped asset"
+                )
+              )
+            );
           }
         }
       }
       if (targetChain === CHAIN_ID_SOLANA && originChain && originAsset) {
+        dispatch(setTargetAsset(fetchDataWrapper()));
         try {
           const connection = new Connection(SOLANA_HOST, "confirmed");
           const asset = await (nft
@@ -117,16 +196,27 @@ function useFetchTargetAsset(nft?: boolean) {
                 hexToUint8Array(originAsset)
               ));
           if (!cancelled) {
-            dispatch(setTargetAsset(asset));
+            dispatch(
+              setTargetAsset(
+                receiveDataWrapper({ doesExist: !!asset, address: asset })
+              )
+            );
+            setArgs();
           }
         } catch (e) {
           if (!cancelled) {
-            // TODO: warning for this
-            dispatch(setTargetAsset(null));
+            dispatch(
+              setTargetAsset(
+                errorDataWrapper(
+                  "Unable to determine existence of wrapped asset"
+                )
+              )
+            );
           }
         }
       }
       if (targetChain === CHAIN_ID_TERRA && originChain && originAsset) {
+        dispatch(setTargetAsset(fetchDataWrapper()));
         try {
           const lcd = new LCDClient(TERRA_HOST);
           const asset = await getForeignAssetTerra(
@@ -136,12 +226,22 @@ function useFetchTargetAsset(nft?: boolean) {
             hexToUint8Array(originAsset)
           );
           if (!cancelled) {
-            dispatch(setTargetAsset(asset));
+            dispatch(
+              setTargetAsset(
+                receiveDataWrapper({ doesExist: !!asset, address: asset })
+              )
+            );
+            setArgs();
           }
         } catch (e) {
           if (!cancelled) {
-            // TODO: warning for this
-            dispatch(setTargetAsset(null));
+            dispatch(
+              setTargetAsset(
+                errorDataWrapper(
+                  "Unable to determine existence of wrapped asset"
+                )
+              )
+            );
           }
         }
       }
@@ -151,6 +251,7 @@ function useFetchTargetAsset(nft?: boolean) {
     };
   }, [
     dispatch,
+    isRecovery,
     isSourceAssetWormholeWrapped,
     originChain,
     originAsset,
@@ -159,6 +260,9 @@ function useFetchTargetAsset(nft?: boolean) {
     nft,
     setTargetAsset,
     tokenId,
+    hasCorrectEvmNetwork,
+    argsMatchLastSuccess,
+    setArgs,
   ]);
 }
 

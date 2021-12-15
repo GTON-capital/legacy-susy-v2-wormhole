@@ -3,9 +3,6 @@ package vaa
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
-	"reflect"
-
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -23,6 +20,20 @@ type (
 	BodyGuardianSetUpdate struct {
 		Keys     []common.Address
 		NewIndex uint32
+	}
+
+	// BodyTokenBridgeRegisterChain is a governance message to register a chain on the token bridge
+	BodyTokenBridgeRegisterChain struct {
+		Module         string
+		ChainID        ChainID
+		EmitterAddress Address
+	}
+
+	// BodyTokenBridgeUpgradeContract is a governance message to upgrade the token bridge.
+	BodyTokenBridgeUpgradeContract struct {
+		Module        string
+		TargetChainID ChainID
+		NewContract   Address
 	}
 )
 
@@ -60,85 +71,48 @@ func (b BodyGuardianSetUpdate) Serialize() []byte {
 	return buf.Bytes()
 }
 
-func SerializeData(data interface{}) ([]byte, error) {
-	return serializeData(reflect.ValueOf(data))
-}
-
-func serializeData(v reflect.Value) ([]byte, error) {
-	switch v.Kind() {
-	case reflect.Bool:
-		if v.Bool() {
-			return []byte{1}, nil
-		}
-		return []byte{0}, nil
-	case reflect.Uint8:
-		return []byte{uint8(v.Uint())}, nil
-	case reflect.Int16:
-		b := make([]byte, 2)
-		binary.LittleEndian.PutUint16(b, uint16(v.Int()))
-		return b, nil
-	case reflect.Uint16:
-		b := make([]byte, 2)
-		binary.LittleEndian.PutUint16(b, uint16(v.Uint()))
-		return b, nil
-	case reflect.Int32:
-		b := make([]byte, 4)
-		binary.LittleEndian.PutUint32(b, uint32(v.Int()))
-		return b, nil
-	case reflect.Uint32:
-		b := make([]byte, 4)
-		binary.LittleEndian.PutUint32(b, uint32(v.Uint()))
-		return b, nil
-	case reflect.Int64:
-		b := make([]byte, 8)
-		binary.LittleEndian.PutUint64(b, uint64(v.Int()))
-		return b, nil
-	case reflect.Uint64:
-		b := make([]byte, 8)
-		binary.LittleEndian.PutUint64(b, v.Uint())
-		return b, nil
-	case reflect.Slice, reflect.Array:
-		switch v.Type().Elem().Kind() {
-		case reflect.Uint8:
-			b := make([]byte, 0, v.Len())
-			for i := 0; i < v.Len(); i++ {
-				b = append(b, byte(v.Index(i).Uint()))
-			}
-			return b, nil
-		}
-		return nil, fmt.Errorf("unsupport type: %v, elem: %v", v.Kind(), v.Elem().Kind())
-	case reflect.String:
-		return []byte(v.String()), nil
-	case reflect.Struct:
-		data := make([]byte, 0, 1024)
-		for i := 0; i < v.NumField(); i++ {
-			field := v.Field(i)
-			d, err := serializeData(field)
-			if err != nil {
-				return nil, err
-			}
-			data = append(data, d...)
-		}
-		return data, nil
+func (r BodyTokenBridgeRegisterChain) Serialize() []byte {
+	if len(r.Module) > 32 {
+		panic("module longer than 32 byte")
 	}
-	return nil, fmt.Errorf("unsupport type: %v", v.Kind())
+
+	buf := &bytes.Buffer{}
+
+	// Write token bridge header
+	for i := 0; i < (32 - len(r.Module)); i++ {
+		buf.WriteByte(0x00)
+	}
+	buf.Write([]byte(r.Module))
+	// Write action ID
+	MustWrite(buf, binary.BigEndian, uint8(1))
+	// Write target chain (0 = universal)
+	MustWrite(buf, binary.BigEndian, uint16(0))
+	// Write chain to be registered
+	MustWrite(buf, binary.BigEndian, r.ChainID)
+	// Write emitter address of chain to be registered
+	buf.Write(r.EmitterAddress[:])
+
+	return buf.Bytes()
 }
 
+func (r BodyTokenBridgeUpgradeContract) Serialize() []byte {
+	if len(r.Module) > 32 {
+		panic("module longer than 32 byte")
+	}
 
+	buf := &bytes.Buffer{}
 
+	// Write token bridge header
+	for i := 0; i < (32 - len(r.Module)); i++ {
+		buf.WriteByte(0x00)
+	}
+	buf.Write([]byte(r.Module))
+	// Write action ID
+	MustWrite(buf, binary.BigEndian, uint8(2))
+	// Write target chain
+	MustWrite(buf, binary.BigEndian, r.TargetChainID)
+	// Write emitter address of chain to be registered
+	buf.Write(r.NewContract[:])
 
-
-type BridgeStructs_RegisterChain struct {
-	// Governance Header
-	// module: "TokenBridge" left-padded
-	module []byte
-	// governance action: 1
-	action uint8
-	// governance paket chain id: this or 0
-	chainId uint16
-
-	// Chain ID
-	emitterChainID uint16;
-	// Emitter address. Left-zero-padded if shorter than 32 bytes
-	emitterAddress []byte
+	return buf.Bytes()
 }

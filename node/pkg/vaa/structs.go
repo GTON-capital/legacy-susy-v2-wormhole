@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -73,6 +74,10 @@ func (a Address) String() string {
 	return hex.EncodeToString(a[:])
 }
 
+func (a Address) Bytes() []byte {
+	return a[:]
+}
+
 func (a SignatureData) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%s"`, a)), nil
 }
@@ -89,7 +94,29 @@ func (c ChainID) String() string {
 	return fmt.Sprintf("unknown chain ID: %d", c)
 }
 
+func ChainIDFromString(s string) (ChainID, error) {
+	s = strings.ToLower(s)
+
+	switch s {
+	case "solana":
+		return ChainIDSolana, nil
+	case "ethereum":
+		return ChainIDEthereum, nil
+	case "terra":
+		return ChainIDTerra, nil
+	case "bsc":
+		return ChainIDBSC, nil
+	case "polygon":
+		return ChainIDPolygon, nil
+	case "ethereum-ropsten":
+		return ChainIDEthereumRopsten, nil
+	default:
+		return ChainIDUnset, fmt.Errorf("unknown chain ID: %s", s)
+	}
+}
+
 const (
+	ChainIDUnset ChainID = 0
 	// ChainIDSolana is the ChainID of Solana
 	ChainIDSolana ChainID = 1
 	// ChainIDEthereum is the ChainID of Ethereum
@@ -98,6 +125,10 @@ const (
 	ChainIDTerra ChainID = 3
 	// ChainIDBSC is the ChainID of Binance Smart Chain
 	ChainIDBSC ChainID = 4
+	// ChainIDPolygon is the ChainID of Polygon
+	ChainIDPolygon ChainID = 5
+	// ChainIDEthereumRopsten is the ChainID of Ethereum Ropsten
+	ChainIDEthereumRopsten ChainID = 10001
 
 	minVAALength        = 1 + 4 + 52 + 4 + 1 + 1
 	SupportedVAAVersion = 0x01
@@ -258,6 +289,15 @@ func (v *VAA) Marshal() ([]byte, error) {
 // MessageID returns a human-readable emitter_chain/emitter_address/sequence tuple.
 func (v *VAA) MessageID() string {
 	return fmt.Sprintf("%d/%s/%d", v.EmitterChain, v.EmitterAddress, v.Sequence)
+}
+
+// HexDigest returns the hex-encoded digest.
+func (v *VAA) HexDigest() string {
+	b, err := v.SigningMsg()
+	if err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b.Bytes())
 }
 
 func (v *VAA) serializeBody() ([]byte, error) {

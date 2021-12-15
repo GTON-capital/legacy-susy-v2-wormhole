@@ -1,8 +1,15 @@
-module example.com/cloudfunction
+module github.com/SuSy-One/susy-v2/event_database/cloud_functions
 
-// cloud runtime is go 1.13. just for reference.
+go 1.16
+
+// cloud runtime is go 1.16. just for reference.
 
 require (
 	cloud.google.com/go/bigtable v1.10.1
-	google.golang.org/api v0.48.0
+	google.golang.org/api v0.48.0 // indirect
+)
+
+require (
+	github.com/GoogleCloudPlatform/functions-framework-go v1.3.0
+	github.com/SuSy-One/susy-v2/node v0.0.0-20211102011245-d412cb8a936a
 )

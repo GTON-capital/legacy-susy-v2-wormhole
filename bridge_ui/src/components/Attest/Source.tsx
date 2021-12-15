@@ -1,4 +1,4 @@
-import { makeStyles, MenuItem, TextField } from "@material-ui/core";
+import { makeStyles, TextField } from "@material-ui/core";
 import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -14,6 +14,7 @@ import {
 } from "../../store/selectors";
 import { CHAINS } from "../../utils/consts";
 import ButtonWithLoader from "../ButtonWithLoader";
+import ChainSelect from "../ChainSelect";
 import KeyAndBalance from "../KeyAndBalance";
 import LowBalanceWarning from "../LowBalanceWarning";
 
@@ -47,22 +48,19 @@ function Source() {
   }, [dispatch]);
   return (
     <>
-      <TextField
+      <ChainSelect
         select
+        variant="outlined"
         fullWidth
         value={sourceChain}
         onChange={handleSourceChange}
         disabled={shouldLockFields}
-      >
-        {CHAINS.map(({ id, name }) => (
-          <MenuItem key={id} value={id}>
-            {name}
-          </MenuItem>
-        ))}
-      </TextField>
+        chains={CHAINS}
+      />
       <KeyAndBalance chainId={sourceChain} />
       <TextField
         label="Asset"
+        variant="outlined"
         fullWidth
         className={classes.transferField}
         value={sourceAsset}

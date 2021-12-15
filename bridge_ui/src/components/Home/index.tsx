@@ -1,5 +1,4 @@
 import {
-  Button,
   Card,
   Container,
   Link,
@@ -7,29 +6,17 @@ import {
   Typography,
 } from "@material-ui/core";
 import { Link as RouterLink } from "react-router-dom";
-import overview from "../../images/overview2.svg";
 import { COLORS } from "../../muiTheme";
+import { BETA_CHAINS, CHAINS } from "../../utils/consts";
+import HeaderText from "../HeaderText";
 
 const useStyles = makeStyles((theme) => ({
-  centeredContainer: {
-    textAlign: "center",
-    width: "100%",
-  },
   header: {
     marginTop: theme.spacing(12),
-    marginBottom: theme.spacing(15),
+    marginBottom: theme.spacing(8),
     [theme.breakpoints.down("sm")]: {
       marginBottom: theme.spacing(6),
     },
-  },
-  linearGradient: {
-    background: `linear-gradient(to left, ${COLORS.blue}, ${COLORS.green});`,
-    WebkitBackgroundClip: "text",
-    backgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    MozBackgroundClip: "text",
-    MozTextFillColor: "transparent",
-    filter: `drop-shadow( 0px 0px 8px ${COLORS.nearBlack}) drop-shadow( 0px 0px 14px ${COLORS.nearBlack}) drop-shadow( 0px 0px 24px ${COLORS.nearBlack})`,
   },
   description: {
     marginBottom: theme.spacing(2),
@@ -45,12 +32,60 @@ const useStyles = makeStyles((theme) => ({
     maxWidth: "100%",
   },
   mainCard: {
-    padding: theme.spacing(1),
-    borderRadius: "5px",
+    padding: theme.spacing(8),
     backgroundColor: COLORS.nearBlackWithMinorTransparency,
   },
   spacer: {
     height: theme.spacing(5),
+  },
+  chainList: {
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    margin: theme.spacing(-1, -1, 8),
+    [theme.breakpoints.down("sm")]: {
+      margin: theme.spacing(-1, -1, 6),
+    },
+  },
+  chainCard: {
+    backgroundColor: COLORS.nearBlackWithMinorTransparency,
+    borderRadius: 8,
+    display: "flex",
+    flexDirection: "column",
+    margin: theme.spacing(1),
+    minHeight: "100%",
+    padding: theme.spacing(2),
+    width: 149, // makes it square
+    maxWidth: 149,
+    [theme.breakpoints.down("sm")]: {
+      padding: theme.spacing(1.5),
+      width: 141, // keeps it square
+      maxWidth: 141,
+    },
+  },
+  chainLogoWrapper: {
+    position: "relative",
+    textAlign: "center",
+  },
+  chainLogo: {
+    height: 64,
+    maxWidth: 64,
+  },
+  chainName: {
+    marginTop: theme.spacing(1),
+    flex: "1",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    minHeight: 40, // 2 lines
+  },
+  chip: {
+    backgroundColor: COLORS.blueWithTransparency,
+    position: "absolute",
+    top: "50%",
+    right: "50%",
+    transform: "translate(50%, -50%)",
   },
 }));
 
@@ -59,41 +94,46 @@ function Home() {
   return (
     <div>
       <Container maxWidth="md">
-        <div className={classes.centeredContainer}>
-          <Typography variant="h2" component="h1" className={classes.header}>
-            <span className={classes.linearGradient}>The Portal is Open</span>
-          </Typography>
+        <div className={classes.header}>
+          <HeaderText>The Portal is Open</HeaderText>
         </div>
       </Container>
-      <Container maxWidth="sm">
+      <Container maxWidth="md">
+        <div className={classes.chainList}>
+          {CHAINS.filter(({ id }) => !BETA_CHAINS.includes(id)).map((chain) => (
+            <div key={chain.id} className={classes.chainCard}>
+              <div className={classes.chainLogoWrapper}>
+                <img
+                  src={chain.logo}
+                  alt={chain.name}
+                  className={classes.chainLogo}
+                />
+              </div>
+              <Typography
+                variant="body2"
+                component="div"
+                className={classes.chainName}
+              >
+                <div>{chain.name}</div>
+              </Typography>
+            </div>
+          ))}
+        </div>
+      </Container>
+      <Container maxWidth="md">
         <Card className={classes.mainCard}>
           <Typography variant="h4" className={classes.description}>
             Wormhole v2 is here!
           </Typography>
           <Typography variant="h6" className={classes.description}>
             The Wormhole Token Bridge allows you to seamlessly transfer
-            tokenized assets across Solana and Ethereum.
+            tokenized assets across Solana, Ethereum, BSC, Terra, and Polygon.
           </Typography>
-          <Button
-            component={RouterLink}
-            to="/transfer"
-            variant="contained"
-            color="secondary"
-            size="large"
-            className={classes.button}
-          >
-            Transfer Tokens
-          </Button>
           <div className={classes.spacer} />
           <Typography variant="subtitle1" className={classes.description}>
             If you transferred assets using the previous version of Wormhole,
             most assets can be migrated to v2 on the{" "}
-            <Link
-              component={RouterLink}
-              to="/transfer"
-              color="secondary"
-              noWrap
-            >
+            <Link component={RouterLink} to="/transfer" noWrap>
               transfer page
             </Link>
             .
@@ -101,22 +141,17 @@ function Home() {
           <Typography variant="subtitle1" className={classes.description}>
             For assets that don't support the migration, the v1 UI can be found
             at{" "}
-            <Link href="https://v1.wormholebridge.com" color="secondary">
+            <Link href="https://v1.wormholebridge.com">
               v1.wormholebridge.com
             </Link>
           </Typography>
           <Typography variant="subtitle1" className={classes.description}>
             To learn more about the Wormhole Protocol that powers it, visit{" "}
-            <Link href="https://wormholenetwork.com/en/" color="secondary">
+            <Link href="https://wormholenetwork.com/en/">
               wormholenetwork.com
             </Link>
           </Typography>
         </Card>
-      </Container>
-      <Container maxWidth="md">
-        <div className={classes.centeredContainer}>
-          <img src={overview} alt="overview" className={classes.overview} />
-        </div>
       </Container>
     </div>
   );

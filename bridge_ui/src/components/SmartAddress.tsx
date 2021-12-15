@@ -1,16 +1,23 @@
 import {
   ChainId,
+  CHAIN_ID_BSC,
   CHAIN_ID_ETH,
+  CHAIN_ID_ETHEREUM_ROPSTEN,
+  CHAIN_ID_POLYGON,
   CHAIN_ID_SOLANA,
+  CHAIN_ID_TERRA,
+  isNativeDenom,
 } from "@certusone/wormhole-sdk";
 import { Button, makeStyles, Tooltip, Typography } from "@material-ui/core";
 import { FileCopy, OpenInNew } from "@material-ui/icons";
 import { withStyles } from "@material-ui/styles";
 import clsx from "clsx";
+import { ReactChild } from "react";
 import useCopyToClipboard from "../hooks/useCopyToClipboard";
 import { ParsedTokenAccount } from "../store/transferSlice";
-import { CLUSTER } from "../utils/consts";
+import { CLUSTER, getExplorerName } from "../utils/consts";
 import { shortenAddress } from "../utils/solana";
+import { formatNativeDenom } from "../utils/terra";
 
 const useStyles = makeStyles((theme) => ({
   mainTypog: {
@@ -55,6 +62,7 @@ export default function SmartAddress({
   variant,
   noGutter,
   noUnderline,
+  extraContent,
 }: {
   chainId: ChainId;
   parsedTokenAccount?: ParsedTokenAccount;
@@ -65,11 +73,16 @@ export default function SmartAddress({
   variant?: any;
   noGutter?: boolean;
   noUnderline?: boolean;
+  extraContent?: ReactChild;
 }) {
   const classes = useStyles();
+  const isNativeTerra = chainId === CHAIN_ID_TERRA && isNativeDenom(address);
   const useableAddress = parsedTokenAccount?.mintKey || address || "";
-  const useableSymbol = parsedTokenAccount?.symbol || symbol || "";
-  const isNative = parsedTokenAccount?.isNativeAsset || false;
+  const useableSymbol = isNativeTerra
+    ? formatNativeDenom(address)
+    : parsedTokenAccount?.symbol || symbol || "";
+  // const useableLogo = logo || isNativeTerra ? getNativeTerraIcon(useableSymbol) : null
+  const isNative = parsedTokenAccount?.isNativeAsset || isNativeTerra || false;
   const addressShort = shortenAddress(useableAddress) || "";
 
   const useableName = isNative
@@ -79,23 +92,42 @@ export default function SmartAddress({
     : tokenName
     ? tokenName
     : "";
-  //TODO terra
   const explorerAddress = isNative
     ? null
     : chainId === CHAIN_ID_ETH
     ? `https://${
         CLUSTER === "testnet" ? "goerli." : ""
       }etherscan.io/address/${useableAddress}`
+    : chainId === CHAIN_ID_ETHEREUM_ROPSTEN
+    ? `https://${
+        CLUSTER === "testnet" ? "ropsten." : ""
+      }etherscan.io/address/${useableAddress}`
+    : chainId === CHAIN_ID_BSC
+    ? `https://${
+        CLUSTER === "testnet" ? "testnet." : ""
+      }bscscan.com/address/${useableAddress}`
+    : chainId === CHAIN_ID_POLYGON
+    ? `https://${
+        CLUSTER === "testnet" ? "mumbai." : ""
+      }polygonscan.com/address/${useableAddress}`
     : chainId === CHAIN_ID_SOLANA
     ? `https://explorer.solana.com/address/${useableAddress}${
         CLUSTER === "testnet"
-          ? "?cluster=testnet"
+          ? "?cluster=devnet"
           : CLUSTER === "devnet"
           ? "?cluster=custom&customUrl=http%3A%2F%2Flocalhost%3A8899"
           : ""
       }`
+    : chainId === CHAIN_ID_TERRA
+    ? `https://finder.terra.money/${
+        CLUSTER === "devnet"
+          ? "localterra"
+          : CLUSTER === "testnet"
+          ? "bombay-12"
+          : "columbus-5"
+      }/address/${useableAddress}`
     : undefined;
-  const explorerName = chainId === CHAIN_ID_ETH ? "Etherscan" : "Explorer";
+  const explorerName = getExplorerName(chainId);
 
   const copyToClipboard = useCopyToClipboard(useableAddress);
 
@@ -107,6 +139,7 @@ export default function SmartAddress({
       className={classes.buttons}
       href={explorerAddress}
       target="_blank"
+      rel="noopener noreferrer"
     >
       {"View on " + explorerName}
     </Button>
@@ -136,6 +169,7 @@ export default function SmartAddress({
         {explorerButton}
         {copyButton}
       </div>
+      {extraContent ? extraContent : null}
     </>
   );
 

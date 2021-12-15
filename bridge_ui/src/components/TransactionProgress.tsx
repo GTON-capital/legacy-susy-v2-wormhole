@@ -1,8 +1,4 @@
-import {
-  ChainId,
-  CHAIN_ID_ETH,
-  CHAIN_ID_SOLANA,
-} from "@certusone/wormhole-sdk";
+import { ChainId, CHAIN_ID_SOLANA, isEVMChain } from "@certusone/wormhole-sdk";
 import { LinearProgress, makeStyles, Typography } from "@material-ui/core";
 import { Connection } from "@solana/web3.js";
 import { useEffect, useState } from "react";
@@ -34,7 +30,7 @@ export default function TransactionProgress({
   const [currentBlock, setCurrentBlock] = useState(0);
   useEffect(() => {
     if (isSendComplete || !tx) return;
-    if (chainId === CHAIN_ID_ETH && provider) {
+    if (isEVMChain(chainId) && provider) {
       let cancelled = false;
       (async () => {
         while (!cancelled) {
@@ -70,10 +66,10 @@ export default function TransactionProgress({
   const blockDiff =
     tx && tx.block && currentBlock ? currentBlock - tx.block : undefined;
   const expectedBlocks =
-    chainId === CHAIN_ID_SOLANA ? 32 : chainId === CHAIN_ID_ETH ? 15 : 1;
+    chainId === CHAIN_ID_SOLANA ? 32 : isEVMChain(chainId) ? 15 : 1;
   if (
     !isSendComplete &&
-    (chainId === CHAIN_ID_SOLANA || chainId === CHAIN_ID_ETH) &&
+    (chainId === CHAIN_ID_SOLANA || isEVMChain(chainId)) &&
     blockDiff !== undefined
   ) {
     return (
