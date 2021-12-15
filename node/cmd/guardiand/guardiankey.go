@@ -37,7 +37,6 @@ var KeygenCmd = &cobra.Command{
 }
 
 func runKeygen(cmd *cobra.Command, args []string) {
-	common.LockMemory()
 	common.SetRestrictiveUmask()
 
 	log.Print("Creating new key at ", args[0])
