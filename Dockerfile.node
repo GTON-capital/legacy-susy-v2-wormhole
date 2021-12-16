@@ -1,6 +1,16 @@
+# build node
+FROM golang:1.16-buster as susy
+
+RUN mkdir /node
+
+COPY . /node
+
+RUN cd /node && make node
+
+# build deps
 FROM ubuntu:18.04
 
-COPY --from=susy:nodev2 /node/build/bin/guardiand /bin/susy
+COPY --from=susy /node/build/bin/guardiand /bin/susy
 COPY entry.sh .
 
 RUN apt update && apt -y install apt-utils
