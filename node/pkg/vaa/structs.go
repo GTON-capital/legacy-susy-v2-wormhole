@@ -47,7 +47,8 @@ type (
 
 	// Address is a Wormhole protocol address, it contains the native chain's address. If the address data type of a
 	// chain is < 32bytes the value is zero-padded on the left.
-	Address [32]byte
+	Address     [32]byte
+	ErgoAddress [36]byte
 
 	// Signature of a single guardian
 	Signature struct {
@@ -59,6 +60,10 @@ type (
 
 	SignatureData [65]byte
 )
+
+func (e ErgoAddress) String() string {
+	return hex.EncodeToString(e[:])
+}
 
 var ChainIdNameMatch ChainIDNameMap
 
@@ -108,6 +113,8 @@ func ChainIDFromString(s string) (ChainID, error) {
 		return ChainIDBSC, nil
 	case "polygon":
 		return ChainIDPolygon, nil
+	case "ergo":
+		return ChainIDErgo, nil
 	case "ethereum-ropsten":
 		return ChainIDEthereumRopsten, nil
 	default:
@@ -127,6 +134,8 @@ const (
 	ChainIDBSC ChainID = 4
 	// ChainIDPolygon is the ChainID of Polygon
 	ChainIDPolygon ChainID = 5
+	// ChainIDErgo is the ChainID of Ergo
+	ChainIDErgo ChainID = 6
 	// ChainIDEthereumRopsten is the ChainID of Ethereum Ropsten
 	ChainIDEthereumRopsten ChainID = 10001
 
