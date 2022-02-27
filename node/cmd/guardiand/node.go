@@ -3,6 +3,7 @@ package guardiand
 import (
 	"context"
 	"fmt"
+	"github.com/SuSy-One/susy-v2/node/pkg/ergo"
 	"github.com/SuSy-One/susy-v2/node/pkg/notify/discord"
 	"github.com/gagliardetto/solana-go/rpc"
 
@@ -16,10 +17,10 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/SuSy-One/susy-v2/node/pkg/db"
 	"github.com/SuSy-One/susy-v2/node/pkg/p2p"
 	"github.com/SuSy-One/susy-v2/node/pkg/processor"
 	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
-	"github.com/SuSy-One/susy-v2/node/pkg/db"
 	"github.com/SuSy-One/susy-v2/node/pkg/readiness"
 	"github.com/SuSy-One/susy-v2/node/pkg/reporter"
 	solana "github.com/SuSy-One/susy-v2/node/pkg/solana"
@@ -56,7 +57,8 @@ var (
 	guardianKeyPath *string
 	solanaContract  *string
 
-	ergoRPC *string
+	ergoRPC      *string
+	ergoWUrl     *string
 	ergoContract *string
 
 	ethRPC      *string
@@ -120,6 +122,7 @@ func init() {
 	solanaContract = NodeCmd.Flags().String("solanaContract", "", "Address of the Solana program (required)")
 
 	ergoRPC = NodeCmd.Flags().String("ergoRPC", "", "Ergo RPC URL")
+	ergoWUrl = NodeCmd.Flags().String("ergoWUrl", "", "Ergo watcher URL")
 	ergoContract = NodeCmd.Flags().String("ergoContract", "", "Address of the ErgoScript (required)")
 
 	ethRPC = NodeCmd.Flags().String("ethRPC", "", "Ethereum RPC URL")
@@ -329,6 +332,13 @@ func runNode(cmd *cobra.Command, args []string) {
 	if *solanaRPC == "" {
 		logger.Fatal("Please specify --solanaUrl")
 	}
+	if *ergoRPC == "" {
+		logger.Fatal("Please specify --ergoRPC")
+	}
+	if *ergoWUrl == "" {
+		logger.Fatal("Please specify --ergoWUrl")
+	}
+
 	testParam := viper.GetString("test")
 	logger.Debug(fmt.Sprintf("Karamba %s", testParam))
 	evmWatchers := []ethereum.WatcherConfig{}
@@ -406,6 +416,7 @@ func runNode(cmd *cobra.Command, args []string) {
 
 	// Ethereum incoming guardian set updates
 	setC := make(chan *common.GuardianSet)
+	setErgoC := make(chan *common.ErgoGuardianSet)
 
 	// Outbound gossip message queue
 	sendC := make(chan []byte)
@@ -490,6 +501,10 @@ func runNode(cmd *cobra.Command, args []string) {
 		// 	terra.NewWatcher(*terraWS, *terraLCD, *terraContract, lockC, setC).Run); err != nil {
 		// 	return err
 		// }
+		if err := supervisor.Run(ctx, "ergowatch",
+			ergo.NewErgoWatcher(*ergoWUrl, lockC, setErgoC).Run); err != nil {
+			return err
+		}
 
 		if err := supervisor.Run(ctx, "solwatch-confirmed",
 			solana.NewSolanaWatcher(*solanaWsRPC, *solanaRPC, solAddress, lockC, rpc.CommitmentConfirmed).Run); err != nil {
