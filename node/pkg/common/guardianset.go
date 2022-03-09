@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"github.com/SuSy-One/susy-v2/node/pkg/ergo"
 	"sync"
 	"time"
 
@@ -33,6 +34,14 @@ const MaxStateAge = 1 * time.Minute
 type GuardianSet struct {
 	// Guardian's public key hashes truncated by the ETH standard hashing mechanism (20 bytes).
 	Keys []common.Address
+	// On-chain set index
+	Index uint32
+}
+
+type ErgoGuardianSet struct {
+	// Guardian's public key hashes truncated by the ETH standard hashing mechanism (20 bytes).
+	ErgoKeys     []ergo.ErgoAddress
+	WormholeKeys []common.Address
 	// On-chain set index
 	Index uint32
 }
