@@ -2,141 +2,99 @@ package ergo
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
-	"math/big"
-	"sync"
+	"github.com/SuSy-One/susy-v2/node/pkg/readiness"
+	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
+	"github.com/mr-tron/base58"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"time"
 
 	"github.com/SuSy-One/susy-v2/node/pkg/p2p"
 	gossipv1 "github.com/SuSy-One/susy-v2/node/pkg/proto/gossip/v1"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-
-	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	eth_common "github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"go.uber.org/zap"
 
 	"github.com/SuSy-One/susy-v2/node/pkg/common"
-	"github.com/SuSy-One/susy-v2/node/pkg/ethereum/abi"
-	"github.com/SuSy-One/susy-v2/node/pkg/readiness"
 	"github.com/SuSy-One/susy-v2/node/pkg/supervisor"
-	"github.com/SuSy-One/susy-v2/node/pkg/vaa"
+	eth_common "github.com/ethereum/go-ethereum/common"
 )
 
+var (
+	ergoConnectionErrors = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "wormhole_ergo_connection_errors_total",
+			Help: "Total number of Ergo connection errors",
+		}, []string{"ergo_network", "reason"})
+
+	currentErgoHeight = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "wormhole_ergo_current_height",
+			Help: "Current Ergo block height",
+		}, []string{"operation"})
+	queryLatency = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "wormhole_ergo_query_latency",
+			Help: "Latency histogram for Ergo calls",
+		}, []string{"operation"})
+)
 
 type (
-	Watcher struct {
-		// Ethereum RPC url
+	ErgoWatcher struct {
+		// ergo watcher url
 		url string
-		// Address of the Eth contract contract
-		contract eth_common.Address
-		// Human-readable name of the Eth network, for logging and monitoring.
-		networkName string
-		// Readiness component
-		readiness readiness.Component
-		// VAA ChainID of the network we're connecting to.
-		chainID vaa.ChainID
+
+		// Address of the ergo contract address
+		contract ErgoAddress
 
 		// Channel to send new messages to.
 		msgChan chan *common.MessagePublication
 
 		// Channel to send guardian set changes to.
 		// setChan can be set to nil if no guardian set changes are needed.
-		//
-		// We currently only fetch the guardian set from one primary chain, which should
-		// have this flag set to true, and false on all others.
-		//
-		// The current primary chain is Ethereum (a mostly arbitrary decision because it
-		// has the best API - we might want to switch the primary chain to Solana once
-		// the governance mechanism lives there),
-		setChan chan *common.GuardianSet
 
-		pending   map[eth_common.Hash]*pendingMessage
-		pendingMu sync.Mutex
+		setChan chan *common.ErgoGuardianSet
 
 		// 0 is a valid guardian set, so we need a nil value here
 		currentGuardianSet *uint32
 	}
 
-	pendingMessage struct {
-		message *common.MessagePublication
-		height  uint64
-	}
-
-	WatcherConfig struct {
-		Name        string `mapstructure:"name"`
-		Url         string `mapstructure:"url"`
-		Contract    string `mapstructure:"contract"`
-		NetworkName string `mapstructure:"network_name"`
-		Readiness   string `mapstructure:"readiness"`
-		ChainID     uint16 `mapstructure:"chain_id"`
+	PendingMessage struct {
+		Message common.MessagePublication
+		Height  uint64
 	}
 )
 
 func NewErgoWatcher(
 	url string,
-	contract eth_common.Address,
-	networkName string,
-	readiness readiness.Component,
-	chainID vaa.ChainID,
 	messageEvents chan *common.MessagePublication,
-	setEvents chan *common.GuardianSet) *Watcher {
-	return &Watcher{
-		url:         url,
-		contract:    contract,
-		networkName: networkName,
-		readiness:   readiness,
-		chainID:     chainID,
-		msgChan:     messageEvents,
-		setChan:     setEvents,
-		pending:     map[eth_common.Hash]*pendingMessage{}}
+	setEvents chan *common.ErgoGuardianSet) *ErgoWatcher {
+	return &ErgoWatcher{
+		url:     url,
+		msgChan: messageEvents,
+		setChan: setEvents,
+	}
 }
 
-func (e *Watcher) Run(ctx context.Context) error {
+func (e *ErgoWatcher) Run(ctx context.Context) error {
 	logger := supervisor.Logger(ctx)
+	var lastHeight int64
+	errC := make(chan error)
 
 	// Initialize gossip metrics (we want to broadcast the address even if we're not yet syncing)
-	p2p.DefaultRegistry.SetNetworkStats(e.chainID, &gossipv1.Heartbeat_Network{
-		ContractAddress: e.contract.Hex(),
+	contractAddr := base58.Encode(e.contract[:])
+	p2p.DefaultRegistry.SetNetworkStats(vaa.ChainIDErgo, &gossipv1.Heartbeat_Network{
+		ContractAddress: contractAddr,
 	})
 
-	timeout, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-	c, err := ethclient.DialContext(timeout, e.url)
+	client, err := NewClient(ErgOptions{ApiKey: "", BaseUrl: e.url})
 	if err != nil {
-		ethConnectionErrors.WithLabelValues(e.networkName, "dial_error").Inc()
-		p2p.DefaultRegistry.AddErrorCount(e.chainID, 1)
-		return fmt.Errorf("dialing eth client failed: %w", err)
-	}
-
-	f, err := abi.NewAbiFilterer(e.contract, c)
-	if err != nil {
-		return fmt.Errorf("could not create wormhole contract filter: %w", err)
-	}
-
-	caller, err := abi.NewAbiCaller(e.contract, c)
-	if err != nil {
-		panic(err)
-	}
-
-	// Timeout for initializing subscriptions
-	timeout, cancel = context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-
-	// Subscribe to new message publications
-	messageC := make(chan *abi.AbiLogMessagePublished, 2)
-	messageSub, err := f.WatchLogMessagePublished(&bind.WatchOpts{Context: timeout}, messageC, nil)
-	if err != nil {
-		ethConnectionErrors.WithLabelValues(e.networkName, "subscribe_error").Inc()
-		p2p.DefaultRegistry.AddErrorCount(e.chainID, 1)
-		return fmt.Errorf("failed to subscribe to message publication events: %w", err)
+		p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDErgo, 1)
+		return fmt.Errorf("dialing ergo client failed: %w", err)
 	}
 
 	// Fetch initial guardian set
-	if err := e.fetchAndUpdateGuardianSet(logger, ctx, caller); err != nil {
+	if err := e.fetchAndUpdateGuardianSet(logger, ctx, client); err != nil {
 		return fmt.Errorf("failed to request guardian set: %v", err)
 	}
 
@@ -149,122 +107,56 @@ func (e *Watcher) Run(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-t.C:
-				if err := e.fetchAndUpdateGuardianSet(logger, ctx, caller); err != nil {
-					logger.Error("failed updating guardian set",
-						zap.Error(err), zap.String("eth_network", e.networkName))
+				if err := e.fetchAndUpdateGuardianSet(logger, ctx, client); err != nil {
+					logger.Error("failed updating guardian set")
 				}
 			}
 		}
 	}()
 
-	errC := make(chan error)
 	go func() {
+		timer := time.NewTicker(time.Second * 1)
+		defer timer.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case err := <-messageSub.Err():
-				ethConnectionErrors.WithLabelValues(e.networkName, "subscription_error").Inc()
-				errC <- fmt.Errorf("error while processing message publication subscription: %w", err)
-				p2p.DefaultRegistry.AddErrorCount(e.chainID, 1)
-				return
-			case ev := <-messageC:
-				// Request timestamp for block
-				msm := time.Now()
-				timeout, cancel = context.WithTimeout(ctx, 15*time.Second)
-				b, err := c.BlockByNumber(timeout, big.NewInt(int64(ev.Raw.BlockNumber)))
-				cancel()
-				queryLatency.WithLabelValues(e.networkName, "block_by_number").Observe(time.Since(msm).Seconds())
+			case <-timer.C:
 
+				start := time.Now()
+
+				// Watch headers
+				height, err := client.getlastHeight(ctx)
 				if err != nil {
-					ethConnectionErrors.WithLabelValues(e.networkName, "block_by_number_error").Inc()
-					p2p.DefaultRegistry.AddErrorCount(e.chainID, 1)
-					errC <- fmt.Errorf("failed to request timestamp for block %d: %w", ev.Raw.BlockNumber, err)
+					ergoConnectionErrors.WithLabelValues("get_last_height_error").Inc()
+					p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDErgo, 1)
+					logger.Error("failed to get last height events: %w", zap.Error(err))
+					errC <- err
 					return
 				}
 
-				messsage := &common.MessagePublication{
-					TxHash:           ev.Raw.TxHash,
-					Timestamp:        time.Unix(int64(b.Time()), 0),
-					Nonce:            ev.Nonce,
-					Sequence:         ev.Sequence,
-					EmitterChain:     e.chainID,
-					EmitterAddress:   PadAddress(ev.Sender),
-					Payload:          ev.Payload,
-					ConsistencyLevel: ev.ConsistencyLevel,
+				if lastHeight == 0 {
+					lastHeight = height - 1
 				}
-
-				logger.Info("found new message publication transaction", zap.Stringer("tx", ev.Raw.TxHash),
-					zap.Uint64("block", ev.Raw.BlockNumber), zap.String("eth_network", e.networkName))
-
-				ethMessagesObserved.WithLabelValues(e.networkName).Inc()
-
-				e.pendingMu.Lock()
-				e.pending[ev.Raw.TxHash] = &pendingMessage{
-					message: messsage,
-					height:  ev.Raw.BlockNumber,
-				}
-				e.pendingMu.Unlock()
-			}
-		}
-	}()
-
-	// Watch headers
-	headSink := make(chan *types.Header, 2)
-	headerSubscription, err := c.SubscribeNewHead(ctx, headSink)
-	if err != nil {
-		ethConnectionErrors.WithLabelValues(e.networkName, "header_subscribe_error").Inc()
-		p2p.DefaultRegistry.AddErrorCount(e.chainID, 1)
-		return fmt.Errorf("failed to subscribe to header events: %w", err)
-	}
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case err := <-headerSubscription.Err():
-				ethConnectionErrors.WithLabelValues(e.networkName, "header_subscription_error").Inc()
-				errC <- fmt.Errorf("error while processing header subscription: %w", err)
-				p2p.DefaultRegistry.AddErrorCount(e.chainID, 1)
-				return
-			case ev := <-headSink:
-				start := time.Now()
-				logger.Info("processing new header", zap.Stringer("block", ev.Number),
-					zap.String("eth_network", e.networkName))
-				currentEthHeight.WithLabelValues(e.networkName).Set(float64(ev.Number.Int64()))
-				readiness.SetReady(e.readiness)
-				p2p.DefaultRegistry.SetNetworkStats(e.chainID, &gossipv1.Heartbeat_Network{
-					Height:          ev.Number.Int64(),
-					ContractAddress: e.contract.Hex(),
+				currentErgoHeight.WithLabelValues("get_last_height").Set(float64(height))
+				readiness.SetReady(common.ReadinessSolanaSyncing)
+				p2p.DefaultRegistry.SetNetworkStats(vaa.ChainIDSolana, &gossipv1.Heartbeat_Network{
+					Height:          height,
+					ContractAddress: contractAddr,
 				})
 
-				e.pendingMu.Lock()
+				rangeStart := lastHeight + 1
+				rangeEnd := height
 
-				blockNumberU := ev.Number.Uint64()
-				for hash, pLock := range e.pending {
-
-					// Transaction was dropped and never picked up again
-					if pLock.height+4*uint64(pLock.message.ConsistencyLevel) <= blockNumberU {
-						logger.Debug("observation timed out", zap.Stringer("tx", pLock.message.TxHash),
-							zap.Stringer("block", ev.Number), zap.String("eth_network", e.networkName))
-						delete(e.pending, hash)
-						continue
-					}
-
-					// Transaction is now ready
-					if pLock.height+uint64(pLock.message.ConsistencyLevel) <= ev.Number.Uint64() {
-						logger.Debug("observation confirmed", zap.Stringer("tx", pLock.message.TxHash),
-							zap.Stringer("block", ev.Number), zap.String("eth_network", e.networkName))
-						delete(e.pending, hash)
-						e.msgChan <- pLock.message
-						ethMessagesConfirmed.WithLabelValues(e.networkName).Inc()
-					}
+				logger.Info("fetching slots in range",
+					zap.Uint64("from", uint64(rangeStart)), zap.Uint64("to", uint64(rangeEnd)),
+					zap.Duration("took", time.Since(start)))
+				// Requesting each slot
+				if rangeStart <= rangeEnd {
+					go e.retryGetVAAData(ctx, client, logger, rangeStart, rangeEnd, errC)
 				}
-
-				e.pendingMu.Unlock()
-				logger.Info("processed new header", zap.Stringer("block", ev.Number),
-					zap.Duration("took", time.Since(start)), zap.String("eth_network", e.networkName))
+				lastHeight = height
 			}
 		}
 	}()
@@ -277,38 +169,37 @@ func (e *Watcher) Run(ctx context.Context) error {
 	}
 }
 
-func (e *Watcher) fetchAndUpdateGuardianSet(
+func (e *ErgoWatcher) fetchAndUpdateGuardianSet(
 	logger *zap.Logger,
 	ctx context.Context,
-	caller *abi.AbiCaller,
+	client *ErgClient,
 ) error {
 	msm := time.Now()
 	logger.Info("fetching guardian set")
 	timeout, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	idx, gs, err := fetchCurrentGuardianSet(timeout, caller)
+	gs, err := fetchCurrentGuardianSet(timeout, client)
 	if err != nil {
-		ethConnectionErrors.WithLabelValues(e.networkName, "guardian_set_fetch_error").Inc()
-		p2p.DefaultRegistry.AddErrorCount(e.chainID, 1)
+		p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDErgo, 1)
 		return err
 	}
 
-	queryLatency.WithLabelValues(e.networkName, "get_guardian_set").Observe(time.Since(msm).Seconds())
+	queryLatency.WithLabelValues("get_guardian_set").Observe(time.Since(msm).Seconds())
 
-	if e.currentGuardianSet != nil && *(e.currentGuardianSet) == idx {
+	if e.currentGuardianSet != nil && *(e.currentGuardianSet) == gs.Index {
 		return nil
 	}
 
 	logger.Info("updated guardian set found",
-		zap.Any("value", gs), zap.Uint32("index", idx),
-		zap.String("eth_network", e.networkName))
+		zap.Any("value", gs), zap.Uint32("index", gs.Index))
 
-	e.currentGuardianSet = &idx
+	e.currentGuardianSet = &gs.Index
 
 	if e.setChan != nil {
-		e.setChan <- &common.GuardianSet{
-			Keys:  gs.Keys,
-			Index: idx,
+		e.setChan <- &common.ErgoGuardianSet{
+			ErgoKeys:     gs.ErgoKeys,
+			WormholeKeys: gs.WormholeKeys,
+			Index:        gs.Index,
 		}
 	}
 
@@ -316,18 +207,56 @@ func (e *Watcher) fetchAndUpdateGuardianSet(
 }
 
 // Fetch the current guardian set ID and guardian set from the chain.
-func fetchCurrentGuardianSet(ctx context.Context, caller *abi.AbiCaller) (uint32, *abi.StructsGuardianSet, error) {
-	opts := &bind.CallOpts{Context: ctx}
+func fetchCurrentGuardianSet(ctx context.Context, client *ErgClient) (*common.ErgoGuardianSet, error) {
 
-	currentIndex, err := caller.GetCurrentGuardianSetIndex(opts)
+	gs, err := client.GetCurrentGuardianSet(ctx)
 	if err != nil {
-		return 0, nil, fmt.Errorf("error requesting current guardian set index: %w", err)
+		return nil, fmt.Errorf("error requesting current guardian set value: %w", err)
 	}
 
-	gs, err := caller.GetGuardianSet(opts, currentIndex)
-	if err != nil {
-		return 0, nil, fmt.Errorf("error requesting current guardian set value: %w", err)
-	}
+	return &gs, nil
+}
 
-	return currentIndex, &gs, nil
+func (e *ErgoWatcher) retryGetVAAData(ctx context.Context, client *ErgClient, logger *zap.Logger, offsetHeight int64, limitHeight int64, errC chan error) {
+
+	messages, err := client.getObservations(ctx, offsetHeight, limitHeight)
+	if err != nil {
+		p2p.DefaultRegistry.AddErrorCount(vaa.ChainIDErgo, 1)
+		logger.Error("failed to get message publication events: %w", zap.Error(err))
+		errC <- err
+		return
+	}
+	// Request timestamp for block
+	for _, msg := range messages {
+		txHash, _ := hex.DecodeString(msg.TxId)
+		emitterAddressBytes, _ := hex.DecodeString(msg.EmitterAddress)
+		addr := vaa.Address{}
+		copy(addr[:], emitterAddressBytes)
+
+		observation := &common.MessagePublication{
+			TxHash:           eth_common.BytesToHash(txHash),
+			Timestamp:        time.Unix(int64(msg.Timestamp), 0),
+			Nonce:            msg.Nonce,
+			Sequence:         msg.Sequence,
+			EmitterChain:     vaa.ChainIDErgo,
+			EmitterAddress:   addr,
+			Payload:          msg.Payload,
+			ConsistencyLevel: msg.ConsistencyLevel,
+		}
+
+		logger.Info("message observed",
+			zap.Uint64("height", msg.Height),
+			zap.Time("timestamp", observation.Timestamp),
+			zap.Uint32("nonce", observation.Nonce),
+			zap.Uint64("sequence", observation.Sequence),
+			zap.Stringer("emitter_chain", observation.EmitterChain),
+			zap.Stringer("emitter_address", observation.EmitterAddress),
+			zap.Binary("payload", observation.Payload),
+			zap.Uint8("consistency_level", observation.ConsistencyLevel),
+		)
+		logger.Info("found new message publication transaction", zap.String("tx", msg.TxId),
+			zap.Uint64("height", msg.Height))
+
+		e.msgChan <- observation
+	}
 }
